@@ -1,45 +1,26 @@
-"use client";
+import React from 'react';
+import { createClient } from '@/utils/supabase/server';
+import { TrendingUp, Users, Zap, CheckCircle } from 'lucide-react';
+import { ExportCSVButton } from './ExportCSVButton';
 
-import React, { useState } from 'react';
-import { useData } from '@/lib/data-context';
-import { Download, TrendingUp, Users, Zap, CheckCircle } from 'lucide-react';
+export default async function ReportsPage() {
+  const supabase = await createClient();
 
-export default function ReportsPage() {
-  const { installations, customers, partners } = useData();
-  const [isExporting, setIsExporting] = useState(false);
+  const [
+    { data: installations },
+    { count: totalCustomers }
+  ] = await Promise.all([
+    supabase.from('installations').select('*'),
+    supabase.from('customers').select('*', { count: 'exact', head: true })
+  ]);
 
-  const completedInstalls = installations.filter(i => ['VERIFIED', 'COMPLETED'].includes(i.status)).length;
-  const inProgressInstalls = installations.filter(i => ['IN PROGRESS', 'UNDER VERIFICATION', 'REVISIT REQUIRED'].includes(i.status)).length;
-  const newInstalls = installations.filter(i => ['NEW', 'PARTNER ASSIGNED', 'TECHNICIAN ASSIGNED'].includes(i.status)).length;
+  const installs = installations || [];
   
-  const successRate = installations.length ? Math.round((completedInstalls / installations.length) * 100) : 0;
-
-  const handleExportCSV = () => {
-    setIsExporting(true);
-    setTimeout(() => {
-      // Mock CSV generation
-      const headers = ['Installation ID', 'Customer ID', 'Dealer ID', 'Partner ID', 'Status', 'Date Created', 'Completed At'];
-      const rows = installations.map(i => [
-        i.id, 
-        i.customerId, 
-        i.dealerId, 
-        i.partnerId || 'Unassigned', 
-        i.status, 
-        i.dateCreated, 
-        i.completedAt || 'N/A'
-      ].join(','));
-      
-      const csvContent = "data:text/csv;charset=utf-8," + headers.join(',') + "\n" + rows.join('\n');
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `acs_installations_report_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setIsExporting(false);
-    }, 1500);
-  };
+  const completedInstalls = installs.filter(i => ['VERIFIED', 'COMPLETED'].includes(i.status)).length;
+  const inProgressInstalls = installs.filter(i => ['IN_PROGRESS', 'UNDER_VERIFICATION', 'REVISIT_REQUIRED'].includes(i.status)).length;
+  const newInstalls = installs.filter(i => ['NEW', 'PARTNER_ASSIGNED', 'TECHNICIAN_ASSIGNED'].includes(i.status)).length;
+  
+  const successRate = installs.length ? Math.round((completedInstalls / installs.length) * 100) : 0;
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -49,14 +30,8 @@ export default function ReportsPage() {
           <p className="mt-1 text-sm text-gray-500">Monitor installation performance and export data.</p>
         </div>
         <div className="mt-4 sm:mt-0">
-          <button 
-            onClick={handleExportCSV}
-            disabled={isExporting}
-            className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${isExporting ? 'opacity-75 cursor-not-allowed' : ''}`}
-          >
-            <Download className="mr-2 -ml-1 h-4 w-4" aria-hidden="true" />
-            {isExporting ? 'Generating CSV...' : 'Export Full Report'}
-          </button>
+          {/* We must cast to any or map the DB type to match the frontend type closely enough for the CSV export, or modify ExportCSVButton to take any array */}
+          <ExportCSVButton installations={installs as any} />
         </div>
       </div>
 
@@ -125,7 +100,7 @@ export default function ReportsPage() {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Total Customers</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{customers.length}</div>
+                    <div className="text-2xl font-semibold text-gray-900">{totalCustomers || 0}</div>
                   </dd>
                 </dl>
               </div>

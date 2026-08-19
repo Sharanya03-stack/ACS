@@ -2,14 +2,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, User, LogOut, ChevronDown, Settings } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createClient } from '@/utils/supabase/client';
+import { DashboardUser } from './DashboardClientWrapper';
 
-export function Header() {
-  const { user, logout } = useAuth();
+export function Header({ user }: { user: DashboardUser }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -22,6 +23,13 @@ export function Header() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const logout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
 
   const getPageTitle = () => {
     if (pathname.includes('/dashboard')) return 'Dashboard';

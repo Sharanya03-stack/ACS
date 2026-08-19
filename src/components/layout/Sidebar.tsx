@@ -2,7 +2,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth, Role } from '@/lib/auth';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
@@ -18,6 +17,9 @@ import {
   RotateCcw,
   UserCircle
 } from 'lucide-react';
+import { DashboardUser } from './DashboardClientWrapper';
+
+type Role = string;
 
 const NAVIGATION_ITEMS: Record<Role, { name: string; href: string; icon: any }[]> = {
   ACS_ADMIN: [
@@ -31,8 +33,6 @@ const NAVIGATION_ITEMS: Record<Role, { name: string; href: string; icon: any }[]
     { name: 'Partners', href: '/admin/partners', icon: Users },
     { name: 'Technicians', href: '/admin/technicians', icon: Wrench },
     { name: 'Reports', href: '/admin/reports', icon: FileText },
-    { name: 'Analytics', href: '/admin/analytics', icon: FileText }, // Could use BarChart but sticking to available
-    { name: 'Notifications', href: '/admin/notifications', icon: FileText }, // Could use Bell
     { name: 'Settings', href: '/admin/settings', icon: Settings },
   ],
   OEM: [
@@ -42,7 +42,6 @@ const NAVIGATION_ITEMS: Record<Role, { name: string; href: string; icon: any }[]
     { name: 'Vehicles', href: '/oem/vehicles', icon: Car },
     { name: 'Chargers', href: '/oem/chargers', icon: BatteryCharging },
     { name: 'Installations', href: '/oem/installations', icon: CheckCircle },
-    { name: 'Reports', href: '/oem/reports', icon: FileText },
     { name: 'Settings', href: '/oem/settings', icon: Settings },
   ],
   DEALER: [
@@ -51,18 +50,16 @@ const NAVIGATION_ITEMS: Record<Role, { name: string; href: string; icon: any }[]
     { name: 'Customers', href: '/dealer/customers', icon: Users },
     { name: 'Installation Requests', href: '/dealer/requests', icon: BatteryCharging },
     { name: 'Installations', href: '/dealer/installations', icon: CheckCircle },
-    { name: 'Reports', href: '/dealer/reports', icon: FileText },
     { name: 'Settings', href: '/dealer/settings', icon: Settings },
   ],
   PARTNER: [
     { name: 'Dashboard', href: '/partner/dashboard', icon: LayoutDashboard },
-    { name: 'New Jobs', href: '/partner/jobs/new', icon: BatteryCharging },
-    { name: 'Active Jobs', href: '/partner/jobs/active', icon: Wrench },
+    { name: 'New Jobs', href: '/partner/new', icon: BatteryCharging },
+    { name: 'Active Jobs', href: '/partner/active', icon: Wrench },
     { name: 'Scheduled', href: '/partner/scheduled', icon: Calendar },
     { name: 'Completed', href: '/partner/completed', icon: CheckCircle },
     { name: 'Revisits', href: '/partner/revisits', icon: RotateCcw },
     { name: 'Technicians', href: '/partner/technicians', icon: Users },
-    { name: 'Reports', href: '/partner/reports', icon: FileText },
     { name: 'Settings', href: '/partner/settings', icon: Settings },
   ],
   TECHNICIAN: [
@@ -74,9 +71,8 @@ const NAVIGATION_ITEMS: Record<Role, { name: string; href: string; icon: any }[]
   ]
 };
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: DashboardUser }) {
   const pathname = usePathname();
-  const { user } = useAuth();
   
   if (!user) return null;
 

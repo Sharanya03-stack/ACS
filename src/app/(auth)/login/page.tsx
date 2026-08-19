@@ -2,51 +2,75 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, MOCK_USERS, User } from "@/lib/auth";
 import { motion } from "framer-motion";
 import { BatteryCharging, ShieldCheck } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 import Image from "next/image";
+
+// Mapped emails for the fake "user ID" dropdown to match the real seeded auth DB
+const EMAIL_MAP: Record<string, string> = {
+  admin001: 'admin@acsenergy.com',
+  oem001: 'oem@tata.com',
+  dealer001: 'dealer@tata.com',
+  partner001: 'partner@voltcharge.com',
+  tech001: 'tech@voltcharge.com',
+};
 
 export default function LoginPage() {
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const supabase = createClient();
 
   const handleDemoSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value;
-    if (selectedId && MOCK_USERS[selectedId]) {
-      setUserId(selectedId);
-      setPassword(selectedId.replace("001", "123")); 
+    if (selectedId && EMAIL_MAP[selectedId]) {
+      setUserId(EMAIL_MAP[selectedId]);
+      setPassword("password123"); 
     } else {
       setUserId("");
       setPassword("");
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsSubmitting(true);
 
-    const user = MOCK_USERS[userId];
-    if (user) {
-      const expectedPassword = userId.replace("001", "123");
-      if (password === expectedPassword) {
-        login(user);
-        
-        switch (user.role) {
-          case "ACS_ADMIN": router.push("/admin/dashboard"); break;
-          case "OEM": router.push("/oem/dashboard"); break;
-          case "DEALER": router.push("/dealer/dashboard"); break;
-          case "PARTNER": router.push("/partner/dashboard"); break;
-          case "TECHNICIAN": router.push("/technician/dashboard"); break;
-        }
+    try {
+      // For backwards compatibility with the UI, if they type 'admin001', map it. Otherwise use the typed email.
+      const emailToUse = EMAIL_MAP[userId] || userId;
+
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: emailToUse,
+        password: password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        setIsSubmitting(false);
         return;
       }
+
+      // We rely on middleware or AuthContext to route, but we can do an initial fetch here for smooth UX
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
+      
+      const role = profile?.role;
+      if (role === 'ACS_ADMIN') router.push("/admin/dashboard");
+      else if (role === 'OEM') router.push("/oem/dashboard");
+      else if (role === 'DEALER') router.push("/dealer/dashboard");
+      else if (role === 'PARTNER') router.push("/partner/dashboard");
+      else if (role === 'TECHNICIAN') router.push("/technician/dashboard");
+      else router.push("/");
+      
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred");
+      setIsSubmitting(false);
     }
-    setError("Invalid User ID or Password");
   };
 
   return (
@@ -149,33 +173,27 @@ export default function LoginPage() {
         <div className="bg-white/90 backdrop-blur py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-white">
           
           <div className="mb-6 p-4 bg-gray-50/80 border border-gray-100 rounded-xl">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-2">Demo Accounts</h3>
-            <ul className="text-xs text-gray-600 space-y-2 mb-4">
-              <li className="flex justify-between"><span>ACS Admin</span> <code className="font-bold text-[#D6A84F]">admin001</code></li>
-              <li className="flex justify-between"><span>OEM</span> <code className="font-bold text-[#D6A84F]">oem001</code></li>
-              <li className="flex justify-between"><span>Dealer</span> <code className="font-bold text-[#D6A84F]">dealer001</code></li>
-              <li className="flex justify-between"><span>Partner</span> <code className="font-bold text-[#D6A84F]">partner001</code></li>
-              <li className="flex justify-between"><span>Technician</span> <code className="font-bold text-[#D6A84F]">tech001</code></li>
-            </ul>
+            <h3 className="text-sm font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-2">Supabase Auth Integrated</h3>
+            <p className="text-xs text-gray-600 mb-4">Select a role below to auto-fill the test email and password.</p>
             <select 
               className="w-full text-sm border-gray-200 rounded-lg shadow-sm focus:border-[#D6A84F] focus:ring-[#D6A84F] bg-white p-2.5 border outline-none transition-all"
               onChange={handleDemoSelect}
               defaultValue=""
             >
-              <option value="" disabled>Auto-fill credentials...</option>
-              <option value="admin001">ACS Admin</option>
-              <option value="oem001">OEM</option>
-              <option value="dealer001">Dealer</option>
-              <option value="partner001">Installation Partner</option>
-              <option value="tech001">Technician</option>
+              <option value="" disabled>Auto-fill test credentials...</option>
+              <option value="admin001">ACS Admin (admin@acsenergy.com)</option>
+              <option value="oem001">OEM (oem@tata.com)</option>
+              <option value="dealer001">Dealer (dealer@tata.com)</option>
+              <option value="partner001">Installation Partner (partner@voltcharge.com)</option>
+              <option value="tech001">Technician (tech@voltcharge.com)</option>
             </select>
-            <p className="text-[10px] text-gray-400 mt-2 text-center">Passwords end in 123 (e.g. admin123)</p>
+            <p className="text-[10px] text-gray-400 mt-2 text-center">Passwords are password123</p>
           </div>
 
           <form className="space-y-6" onSubmit={handleLogin}>
             <div>
               <label htmlFor="userId" className="block text-sm font-medium text-gray-700">
-                User ID
+                Email / User ID
               </label>
               <div className="mt-1">
                 <input
@@ -199,6 +217,7 @@ export default function LoginPage() {
                   id="password"
                   name="password"
                   type="password"
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -208,7 +227,11 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="text-red-500 text-sm font-medium text-center">
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100"
+              >
                 {error}
               </motion.div>
             )}
@@ -216,12 +239,17 @@ export default function LoginPage() {
             <div>
               <button
                 type="submit"
-                className="flex w-full justify-center rounded-lg border border-transparent bg-[#243B36] py-3 px-4 text-sm font-medium text-white shadow-lg shadow-[#243B36]/20 hover:bg-[#1b2e2a] focus:outline-none focus:ring-2 focus:ring-[#D6A84F] focus:ring-offset-2 transition-all hover:-translate-y-0.5"
+                disabled={isSubmitting}
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-[#243B36] to-[#1a2b27] hover:from-[#1a2b27] hover:to-[#111c19] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#243B36] transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100"
               >
-                Sign In
+                {isSubmitting ? "Authenticating..." : "Sign in securely"}
               </button>
             </div>
           </form>
+          
+          <div className="mt-8 text-center border-t border-gray-100 pt-6">
+            <p className="text-xs text-gray-500">Secure Enterprise Portal • v2.0</p>
+          </div>
         </div>
       </motion.div>
     </div>

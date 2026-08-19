@@ -3,51 +3,59 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { User, Mail, Phone, MapPin, Building, Briefcase, Camera } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
 import toast from 'react-hot-toast';
+import { createClient } from '@/utils/supabase/client';
 
-export default function ProfileClient() {
-  const { user, updateUser } = useAuth();
+export interface ProfileData {
+  id: string;
+  name: string;
+  role: string;
+  phone?: string;
+  org_id?: string;
+}
+
+export default function ProfileClient({ initialUser }: { initialUser: ProfileData }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const supabase = createClient();
   
   // Local state for form fields
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: `${user?.id}@acsenergy.com`,
-    phone: '+91 98765 43210',
+    name: initialUser?.name || '',
+    email: `${initialUser?.id}@acsenergy.com`,
+    phone: initialUser?.phone || '+91 98765 43210',
     location: 'Mumbai, Maharashtra',
-    department: user?.role === 'TECHNICIAN' ? 'Field Operations' : 'Management',
+    department: initialUser?.role === 'TECHNICIAN' ? 'Field Operations' : 'Management',
     bio: 'Enterprise user account for ACS Energy platform.'
   });
 
-  useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        name: user.name,
-      }));
-    }
-  }, [user]);
-
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      updateUser({ name: formData.name });
-      setIsSaving(false);
-      setIsEditing(false);
-      toast.success('Profile updated successfully!', {
-        style: {
-          background: '#243B36',
-          color: '#fff',
-          fontWeight: '500'
-        },
-        iconTheme: {
-          primary: '#D6A84F',
-          secondary: '#243B36',
-        }
-      });
-    }, 800);
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ name: formData.name, phone: formData.phone })
+      .eq('id', initialUser.id)
+      .select();
+      
+    setIsSaving(false);
+    
+    if (error || !data || data.length === 0) {
+      toast.error('Failed to update profile.');
+      return;
+    }
+    
+    setIsEditing(false);
+    toast.success('Profile updated successfully!', {
+      style: {
+        background: '#243B36',
+        color: '#fff',
+        fontWeight: '500'
+      },
+      iconTheme: {
+        primary: '#D6A84F',
+        secondary: '#243B36',
+      }
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -116,7 +124,7 @@ export default function ProfileClient() {
                 </label>
                 <div className="flex gap-2">
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#243B36]/10 text-[#243B36]">
-                    {user?.role}
+                    {initialUser?.role}
                   </span>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                     {formData.department}
@@ -214,7 +222,7 @@ export default function ProfileClient() {
                 setIsEditing(false);
                 setFormData({
                   ...formData,
-                  name: user?.name || ''
+                  name: initialUser?.name || ''
                 });
               }}
               disabled={isSaving}

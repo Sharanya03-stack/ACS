@@ -3,11 +3,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Bell, Lock, Shield, Mail, Smartphone, Key } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
 import toast from 'react-hot-toast';
+import { createClient } from '@/utils/supabase/client';
 
 export default function SettingsClient() {
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('notifications');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -30,12 +29,29 @@ export default function SettingsClient() {
     setNotifications(newNotifs);
   };
 
-  const handleSave = () => {
-    setIsSaving(true);
-    setTimeout(() => {
+  const supabase = createClient();
+
+  const handleSave = async () => {
+    if (activeTab === 'notifications') {
+      toast.error('Notification preferences are not currently persisted.');
+      return;
+    }
+
+    if (activeTab === 'security' && passwords.new) {
+      setIsSaving(true);
+      const { error } = await supabase.auth.updateUser({
+        password: passwords.new
+      });
+      
       setIsSaving(false);
+
+      if (error) {
+        toast.error(error.message || 'Failed to update password');
+        return;
+      }
+
       setPasswords({ current: '', new: '' });
-      toast.success('Settings saved successfully', {
+      toast.success('Password updated successfully', {
         style: {
           background: '#243B36',
           color: '#fff',
@@ -46,7 +62,7 @@ export default function SettingsClient() {
           secondary: '#243B36',
         }
       });
-    }, 800);
+    }
   };
 
   const tabs = [

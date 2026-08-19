@@ -1,15 +1,35 @@
-"use client";
-
 import React from 'react';
-import { useData } from '@/lib/data-context';
-import { useAuth } from '@/lib/auth';
+import { createClient } from '@/utils/supabase/server';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
-export default function TechnicianDashboard() {
-  const { user } = useAuth();
-  const { installations, customers } = useData();
+export default async function TechnicianDashboard() {
+  const supabase = await createClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
 
-  const myJobs = installations.filter(i => i.technicianId === user?.roleId);
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, org_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || profile.role !== 'TECHNICIAN') {
+    redirect('/login');
+  }
+
+  // Fetch technician jobs
+  // RLS will automatically restrict this to technician_id = auth.uid()
+  const { data: jobs } = await supabase
+    .from('installations')
+    .select(`
+      id, 
+      status, 
+      scheduled_date,
+      customers(name, city, address)
+    `)
+    .order('created_at', { ascending: false });
 
   return (
     <div className="max-w-md mx-auto py-6 px-4">
@@ -19,13 +39,13 @@ export default function TechnicianDashboard() {
       </div>
 
       <div className="space-y-4">
-        {myJobs.length === 0 ? (
+        {!jobs || jobs.length === 0 ? (
           <div className="text-center p-6 bg-gray-50 rounded-lg border border-gray-200">
             <p className="text-gray-500">No jobs assigned to you yet.</p>
           </div>
         ) : (
-          myJobs.map(job => {
-            const customer = customers.find(c => c.id === job.customerId);
+          jobs.map(job => {
+            const customer = Array.isArray(job.customers) ? job.customers[0] : job.customers as any;
             const isCompleted = ['UNDER VERIFICATION', 'VERIFIED', 'COMPLETED'].includes(job.status);
             
             return (
@@ -43,7 +63,7 @@ export default function TechnicianDashboard() {
                   </div>
                   <h3 className="text-lg font-bold text-gray-900 mb-1">{customer?.name}</h3>
                   <p className="text-sm text-gray-600 mb-2">{customer?.address}, {customer?.city}</p>
-                  <p className="text-xs text-gray-500 mb-4">Scheduled: {job.scheduledDate || 'Not set'}</p>
+                  <p className="text-xs text-gray-500 mb-4">Scheduled: {job.scheduled_date || 'Not set'}</p>
                   
                   <Link 
                     href={`/technician/jobs/${job.id}`}

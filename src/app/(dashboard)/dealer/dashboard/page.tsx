@@ -1,24 +1,35 @@
-"use client";
-
 import React from 'react';
-import { useData } from '@/lib/data-context';
-import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/server';
+import { redirect } from 'next/navigation';
 
-export default function DealerDashboard() {
-  const { user } = useAuth();
-  const { installations, vehicles, chargers } = useData();
+export default async function DealerDashboard() {
+  const supabase = await createClient();
 
-  // Filter data for this dealer
-  const dealerInstallations = installations.filter(i => i.dealerId === user?.roleId);
-  const dealerVehicles = vehicles.filter(v => v.dealerId === user?.roleId);
-  const dealerChargers = chargers.filter(c => installations.some(i => i.chargerId === c.id && i.dealerId === user?.roleId));
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
 
-  const metrics = {
-    totalSales: dealerVehicles.length,
-    pendingInstallations: dealerInstallations.filter(i => !['COMPLETED', 'VERIFIED', 'CANCELLED', 'FAILED'].includes(i.status)).length,
-    completedInstallations: dealerInstallations.filter(i => ['COMPLETED', 'VERIFIED'].includes(i.status)).length,
-  };
+  // The RLS policies ensure the dealer can only see their own installations and vehicles.
+  // We can just query without client-side filters.
+  
+  // 1. Total EV Sales (count vehicles)
+  const { count: totalSales } = await supabase
+    .from('vehicles')
+    .select('*', { count: 'exact', head: true });
+
+  // 2. Pending Installations
+  const { count: pendingInstallations } = await supabase
+    .from('installations')
+    .select('*', { count: 'exact', head: true })
+    .not('status', 'in', '("COMPLETED","VERIFIED","CANCELLED","FAILED")');
+
+  // 3. Completed Installations
+  const { count: completedInstallations } = await supabase
+    .from('installations')
+    .select('*', { count: 'exact', head: true })
+    .in('status', ['COMPLETED', 'VERIFIED']);
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -38,15 +49,15 @@ export default function DealerDashboard() {
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Total EV Sales</dt>
-          <dd className="mt-1 text-3xl font-semibold text-gray-900">{metrics.totalSales}</dd>
+          <dd className="mt-1 text-3xl font-semibold text-gray-900">{totalSales || 0}</dd>
         </div>
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Pending Installations</dt>
-          <dd className="mt-1 text-3xl font-semibold text-acs-accent">{metrics.pendingInstallations}</dd>
+          <dd className="mt-1 text-3xl font-semibold text-acs-accent">{pendingInstallations || 0}</dd>
         </div>
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Completed Installations</dt>
-          <dd className="mt-1 text-3xl font-semibold text-green-600">{metrics.completedInstallations}</dd>
+          <dd className="mt-1 text-3xl font-semibold text-green-600">{completedInstallations || 0}</dd>
         </div>
       </div>
       

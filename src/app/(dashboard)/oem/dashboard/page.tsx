@@ -1,24 +1,43 @@
-"use client";
-
 import React from 'react';
-import { useData } from '@/lib/data-context';
-import { useAuth } from '@/lib/auth';
+import { createClient, getUserProfile } from '@/utils/supabase/server';
+import { redirect } from 'next/navigation';
 
-export default function OemDashboard() {
-  const { user } = useAuth();
-  const { installations, dealers, vehicles, chargers } = useData();
+export default async function OemDashboard() {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
 
-  // Filter data for this OEM
-  const oemDealers = dealers.filter(d => d.oemId === user?.roleId);
-  const oemVehicles = vehicles.filter(v => v.oemId === user?.roleId);
-  const oemInstallations = installations.filter(i => i.oemId === user?.roleId);
+  if (!profile || profile.role !== 'OEM') {
+    redirect('/login');
+  }
 
-  const metrics = {
-    totalDealers: oemDealers.length,
-    totalVehicles: oemVehicles.length,
-    pendingInstallations: oemInstallations.filter(i => !['COMPLETED', 'VERIFIED', 'CANCELLED', 'FAILED'].includes(i.status)).length,
-    completedInstallations: oemInstallations.filter(i => ['COMPLETED', 'VERIFIED'].includes(i.status)).length,
-  };
+  // 1. Fetch exactly what RLS allows us to see (no client filtering!)
+  const [
+    { count: totalDealers },
+    { count: totalVehicles },
+    { count: pendingInstallations },
+    { count: completedInstallations },
+    { data: recentInstallations }
+  ] = await Promise.all([
+    supabase.from('organizations')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', 'DEALER'),
+      
+    supabase.from('vehicles')
+      .select('*', { count: 'exact', head: true }),
+      
+    supabase.from('installations')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['NEW', 'PARTNER_ASSIGNED', 'TECHNICIAN_ASSIGNED', 'SCHEDULED', 'IN_PROGRESS', 'UNDER_VERIFICATION', 'ON_HOLD', 'RESCHEDULED', 'REVISIT_REQUIRED']),
+      
+    supabase.from('installations')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['COMPLETED', 'VERIFIED']),
+      
+    supabase.from('installations')
+      .select('id, status, vehicles(model), organizations!installations_dealer_id_fkey(name)')
+      .order('created_at', { ascending: false })
+      .limit(10)
+  ]);
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -30,19 +49,19 @@ export default function OemDashboard() {
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Associated Dealerships</dt>
-          <dd className="mt-1 text-3xl font-semibold text-gray-900">{metrics.totalDealers}</dd>
+          <dd className="mt-1 text-3xl font-semibold text-gray-900">{totalDealers || 0}</dd>
         </div>
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Total EV Sales</dt>
-          <dd className="mt-1 text-3xl font-semibold text-gray-900">{metrics.totalVehicles}</dd>
+          <dd className="mt-1 text-3xl font-semibold text-gray-900">{totalVehicles || 0}</dd>
         </div>
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Pending Charger Installs</dt>
-          <dd className="mt-1 text-3xl font-semibold text-acs-accent">{metrics.pendingInstallations}</dd>
+          <dd className="mt-1 text-3xl font-semibold text-acs-accent">{pendingInstallations || 0}</dd>
         </div>
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Completed Installs</dt>
-          <dd className="mt-1 text-3xl font-semibold text-green-600">{metrics.completedInstallations}</dd>
+          <dd className="mt-1 text-3xl font-semibold text-green-600">{completedInstallations || 0}</dd>
         </div>
       </div>
       
@@ -60,23 +79,31 @@ export default function OemDashboard() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {oemInstallations.slice(0, 10).map((inst) => {
-              const vehicle = vehicles.find(v => v.id === inst.vehicleId);
-              const dealer = dealers.find(d => d.id === inst.dealerId);
-
-              return (
-                <tr key={inst.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vehicle?.model}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dealer?.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                      {inst.status}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+            {(!recentInstallations || recentInstallations.length === 0) ? (
+              <tr>
+                <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
+                  No records found.
+                </td>
+              </tr>
+            ) : (
+              recentInstallations.map((inst: any) => {
+                const vehicleModel = inst.vehicles?.model || 'Unknown';
+                const dealerName = inst.organizations?.name || 'Unknown';
+  
+                return (
+                  <tr key={inst.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vehicleModel}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dealerName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                        {inst.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

@@ -1,46 +1,25 @@
-"use client";
+import { redirect } from "next/navigation";
+import { getUserProfile } from "@/utils/supabase/server";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
+export default async function RootPage() {
+  const identity = await getUserProfile();
 
-export default function RootPage() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
+  if (!identity) {
+    redirect("/login");
+  }
 
-  useEffect(() => {
-    if (isLoading) return;
-    
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    // Redirect based on role
-    switch (user.role) {
-      case "ACS_ADMIN":
-        router.push("/admin/dashboard");
-        break;
-      case "OEM":
-        router.push("/oem/dashboard");
-        break;
-      case "DEALER":
-        router.push("/dealer/dashboard");
-        break;
-      case "PARTNER":
-        router.push("/partner/dashboard");
-        break;
-      case "TECHNICIAN":
-        router.push("/technician/dashboard");
-        break;
-      default:
-        router.push("/login");
-    }
-  }, [user, isLoading, router]);
-
-  return (
-    <div className="flex h-screen w-screen items-center justify-center bg-background">
-      <div className="text-primary text-xl animate-pulse">Loading ACS Platform...</div>
-    </div>
-  );
+  switch (identity.role) {
+    case "ACS_ADMIN":
+      redirect("/admin/dashboard");
+    case "OEM":
+      redirect("/oem/dashboard");
+    case "DEALER":
+      redirect("/dealer/dashboard");
+    case "PARTNER":
+      redirect("/partner/dashboard");
+    case "TECHNICIAN":
+      redirect("/technician/dashboard");
+    default:
+      redirect("/login");
+  }
 }

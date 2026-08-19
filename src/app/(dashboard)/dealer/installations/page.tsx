@@ -1,26 +1,36 @@
-"use client";
-
 import React from 'react';
-import { useData } from '@/lib/data-context';
-import { useAuth } from '@/lib/auth';
-import { InstallationStatus } from '@/lib/types';
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/server';
+import { redirect } from 'next/navigation';
 
-export default function DealerInstallationsPage() {
-  const { user } = useAuth();
-  const { installations, customers, vehicles } = useData();
+export default async function DealerInstallationsPage() {
+  const supabase = await createClient();
 
-  // Filter installations for this dealer
-  const dealerInstallations = installations.filter(i => i.dealerId === user?.roleId);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
 
-  const getStatusColor = (status: InstallationStatus) => {
+  // RLS will automatically filter these installations to the ones owned by the dealer
+  const { data: installations, error } = await supabase
+    .from('installations')
+    .select(`
+      id,
+      status,
+      created_at,
+      customer:customers(name, phone),
+      vehicle:vehicles(model)
+    `)
+    .order('created_at', { ascending: false });
+
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'NEW': return 'bg-blue-100 text-blue-800';
       case 'COMPLETED': return 'bg-green-100 text-green-800';
       case 'VERIFIED': return 'bg-emerald-100 text-emerald-800';
-      case 'IN PROGRESS': return 'bg-purple-100 text-purple-800';
-      case 'UNDER VERIFICATION': return 'bg-yellow-100 text-yellow-800';
-      case 'REVISIT REQUIRED': return 'bg-red-100 text-red-800';
+      case 'IN_PROGRESS': return 'bg-purple-100 text-purple-800';
+      case 'UNDER_VERIFICATION': return 'bg-yellow-100 text-yellow-800';
+      case 'REVISIT_REQUIRED': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -52,32 +62,29 @@ export default function DealerInstallationsPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {dealerInstallations.length === 0 ? (
+            {!installations || installations.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-500">
                   No installations found. Go to Sales to create a new request.
                 </td>
               </tr>
             ) : (
-              dealerInstallations.map((inst) => {
-                const customer = customers.find(c => c.id === inst.customerId);
-                const vehicle = vehicles.find(v => v.id === inst.vehicleId);
-
+              installations.map((inst: any) => {
                 return (
                   <tr key={inst.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{customer?.name}</div>
-                      <div className="text-sm text-gray-500">{customer?.phone}</div>
+                      <div className="text-sm font-medium text-gray-900">{inst.customer?.name}</div>
+                      <div className="text-sm text-gray-500">{inst.customer?.phone}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vehicle?.model}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inst.vehicle?.model}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(inst.status)}`}>
                         {inst.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(inst.dateCreated).toLocaleDateString()}
+                      {new Date(inst.created_at).toLocaleDateString()}
                     </td>
                   </tr>
                 );
