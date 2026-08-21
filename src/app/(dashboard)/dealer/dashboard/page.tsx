@@ -14,22 +14,16 @@ export default async function DealerDashboard() {
   // The RLS policies ensure the dealer can only see their own installations and vehicles.
   // We can just query without client-side filters.
   
-  // 1. Total EV Sales (count vehicles)
-  const { count: totalSales } = await supabase
-    .from('vehicles')
-    .select('*', { count: 'exact', head: true });
-
-  // 2. Pending Installations
-  const { count: pendingInstallations } = await supabase
-    .from('installations')
-    .select('*', { count: 'exact', head: true })
-    .not('status', 'in', '("COMPLETED","VERIFIED","CANCELLED","FAILED")');
-
-  // 3. Completed Installations
-  const { count: completedInstallations } = await supabase
-    .from('installations')
-    .select('*', { count: 'exact', head: true })
-    .in('status', ['COMPLETED', 'VERIFIED']);
+  // Fetch counts in parallel
+  const [
+    { count: totalSales },
+    { count: pendingInstallations },
+    { count: completedInstallations }
+  ] = await Promise.all([
+    supabase.from('vehicles').select('*', { count: 'exact', head: true }),
+    supabase.from('installations').select('*', { count: 'exact', head: true }).not('status', 'in', '("COMPLETED","VERIFIED","CANCELLED","FAILED")'),
+    supabase.from('installations').select('*', { count: 'exact', head: true }).in('status', ['COMPLETED', 'VERIFIED'])
+  ]);
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">

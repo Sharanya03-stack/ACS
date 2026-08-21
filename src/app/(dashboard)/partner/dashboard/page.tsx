@@ -19,25 +19,27 @@ export default async function PartnerDashboard() {
     redirect('/login');
   }
 
-  // Fetch partner installations
-  // Using RLS to automatically scope to the partner
-  const { data: installations } = await supabase
-    .from('installations')
-    .select(`
-      id, 
-      status, 
-      technician_id,
-      customers(id, name, city, address),
-      technicians:profiles!technician_id(name)
-    `)
-    .order('created_at', { ascending: false });
-
-  // Fetch eligible technicians for this partner
-  const { data: technicians } = await supabase
-    .from('profiles')
-    .select('id, name')
-    .eq('role', 'TECHNICIAN')
-    .eq('org_id', profile.org_id);
+  // Fetch partner installations and technicians in parallel
+  const [
+    { data: installations },
+    { data: technicians }
+  ] = await Promise.all([
+    supabase
+      .from('installations')
+      .select(`
+        id, 
+        status, 
+        technician_id,
+        customers(id, name, city, address),
+        technicians:profiles!technician_id(name)
+      `)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('profiles')
+      .select('id, name')
+      .eq('role', 'TECHNICIAN')
+      .eq('org_id', profile.org_id)
+  ]);
 
   return (
     <PartnerDashboardClient 
