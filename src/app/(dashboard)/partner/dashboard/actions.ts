@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { notifyTechnicianAssigned } from '@/lib/email/notifications';
 
 export async function assignTechnicianAction(installationId: string, technicianId: string) {
   const supabase = await createClient();
@@ -27,7 +28,7 @@ export async function assignTechnicianAction(installationId: string, technicianI
   // 2. Fetch the target installation and verify ownership
   const { data: installation, error: instError } = await supabase
     .from('installations')
-    .select('id, partner_id, status')
+    .select('id, partner_id, status, technician_id')
     .eq('id', installationId)
     .single();
 
@@ -37,6 +38,10 @@ export async function assignTechnicianAction(installationId: string, technicianI
 
   if (installation.partner_id !== partnerId) {
     return { error: 'Forbidden: Installation belongs to another partner.' };
+  }
+
+  if (installation.technician_id === technicianId) {
+    return { success: true, message: 'Technician already assigned' };
   }
 
   // 3. Verify the target technician exists and belongs to the same partner
@@ -70,6 +75,8 @@ export async function assignTechnicianAction(installationId: string, technicianI
     console.error(`[Partner Assignment Error] Installation ${installationId}:`, updateError);
     return { error: 'Failed to assign technician due to a database error.' };
   }
+
+  notifyTechnicianAssigned(installationId, technicianId).catch(console.error);
 
   revalidatePath('/partner/dashboard');
   return { success: true };

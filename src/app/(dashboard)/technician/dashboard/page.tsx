@@ -2,6 +2,7 @@ import React from 'react';
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { CustomerNameCell } from '@/components/customers/CustomerDetailsDrawer';
 
 export default async function TechnicianDashboard() {
   const supabase = await createClient();
@@ -27,7 +28,7 @@ export default async function TechnicianDashboard() {
       id, 
       status, 
       scheduled_date,
-      customers(name, city, address)
+      customers(id, name, city, address)
     `)
     .order('created_at', { ascending: false });
 
@@ -46,7 +47,7 @@ export default async function TechnicianDashboard() {
         ) : (
           jobs.map(job => {
             const customer = Array.isArray(job.customers) ? job.customers[0] : job.customers as any;
-            const isCompleted = ['UNDER VERIFICATION', 'VERIFIED', 'COMPLETED'].includes(job.status);
+            const isCompleted = ['UNDER_VERIFICATION', 'VERIFIED', 'COMPLETED'].includes(job.status);
             
             return (
               <div key={job.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -55,13 +56,19 @@ export default async function TechnicianDashboard() {
                     <span className="text-xs font-semibold text-gray-500">{job.id}</span>
                     <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${
                       isCompleted ? 'bg-green-100 text-green-800' 
-                      : job.status === 'REVISIT REQUIRED' ? 'bg-red-100 text-red-800'
+                      : job.status === 'REVISIT_REQUIRED' ? 'bg-red-100 text-red-800'
                       : 'bg-blue-100 text-blue-800'
                     }`}>
                       {job.status}
                     </span>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">{customer?.name}</h3>
+                  <div className="mb-1 text-lg">
+                    {customer ? (
+                      <CustomerNameCell id={customer.id} name={customer.name} />
+                    ) : (
+                      <span className="text-gray-400 font-bold">Unknown Customer</span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-600 mb-2">{customer?.address}, {customer?.city}</p>
                   <p className="text-xs text-gray-500 mb-4">Scheduled: {job.scheduled_date || 'Not set'}</p>
                   
@@ -69,11 +76,11 @@ export default async function TechnicianDashboard() {
                     href={`/technician/jobs/${job.id}`}
                     className={`block w-full text-center rounded-md py-2 text-sm font-medium ${
                       isCompleted ? 'bg-gray-100 text-gray-700 border border-gray-300' 
-                      : job.status === 'REVISIT REQUIRED' ? 'bg-red-600 text-white hover:bg-red-700'
+                      : job.status === 'REVISIT_REQUIRED' ? 'bg-red-600 text-white hover:bg-red-700'
                       : 'bg-acs-primary text-white hover:bg-acs-primary/90'
                     }`}
                   >
-                    {isCompleted ? 'View Details' : job.status === 'REVISIT REQUIRED' ? 'Fix Rejection' : 'Start / Continue Job'}
+                    {isCompleted ? 'View Details' : job.status === 'REVISIT_REQUIRED' ? 'Fix Rejection' : 'Start / Continue Job'}
                   </Link>
                 </div>
               </div>

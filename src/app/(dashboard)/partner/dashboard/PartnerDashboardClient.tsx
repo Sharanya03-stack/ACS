@@ -2,6 +2,9 @@
 
 import React, { useState } from 'react';
 import { assignTechnicianAction } from './actions';
+import { CustomerNameCell } from '@/components/customers/CustomerDetailsDrawer';
+import { ReviewDrawer } from '@/components/installations/ReviewDrawer';
+import { useRouter } from 'next/navigation';
 
 export default function PartnerDashboardClient({ 
   installations, 
@@ -10,10 +13,12 @@ export default function PartnerDashboardClient({
   installations: any[], 
   technicians: any[] 
 }) {
+  const router = useRouter();
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
   const [selectedTechId, setSelectedTechId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviewInstId, setReviewInstId] = useState<string | null>(null);
 
   const handleAssign = async () => {
     if (selectedJob && selectedTechId) {
@@ -36,10 +41,13 @@ export default function PartnerDashboardClient({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'NEW': return 'bg-blue-100 text-blue-800';
-      case 'PARTNER ASSIGNED': return 'bg-orange-100 text-orange-800';
-      case 'TECHNICIAN ASSIGNED': return 'bg-cyan-100 text-cyan-800';
+      case 'PARTNER_ASSIGNED': return 'bg-orange-100 text-orange-800';
+      case 'TECHNICIAN_ASSIGNED': return 'bg-cyan-100 text-cyan-800';
       case 'COMPLETED': return 'bg-green-100 text-green-800';
-      case 'IN PROGRESS': return 'bg-purple-100 text-purple-800';
+      case 'IN_PROGRESS': return 'bg-purple-100 text-purple-800';
+      case 'UNDER_VERIFICATION': return 'bg-yellow-100 text-yellow-800';
+      case 'REVISIT_REQUIRED': return 'bg-red-100 text-red-800';
+      case 'VERIFIED': return 'bg-emerald-100 text-emerald-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -74,8 +82,11 @@ export default function PartnerDashboardClient({
                 <tr key={inst.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{customer?.name}</div>
-                    <div className="text-sm text-gray-500">{customer?.address}, {customer?.city}</div>
+                    {customer ? (
+                      <CustomerNameCell id={customer.id} name={customer.name} city={`${customer.address}, ${customer.city}`} />
+                    ) : (
+                      <span className="text-gray-400 italic">Unknown</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(inst.status)}`}>
@@ -86,12 +97,28 @@ export default function PartnerDashboardClient({
                     {tech ? tech.name : <span className="text-gray-400 italic">Unassigned</span>}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {(!inst.technician_id || inst.status === 'NEW' || inst.status === 'PARTNER ASSIGNED') && (
+                    {(!inst.technician_id || inst.status === 'NEW' || inst.status === 'PARTNER_ASSIGNED') && (
                       <button 
                         onClick={() => setSelectedJob(inst)}
                         className="text-acs-primary hover:text-acs-primary/80"
                       >
                         Assign Technician
+                      </button>
+                    )}
+                    {(inst.status === 'UNDER_VERIFICATION') && (
+                      <button 
+                        onClick={() => setReviewInstId(inst.id)}
+                        className="text-acs-primary hover:text-acs-primary/80 font-bold"
+                      >
+                        Review Installation
+                      </button>
+                    )}
+                    {(['VERIFIED', 'COMPLETED', 'REVISIT_REQUIRED'].includes(inst.status)) && (
+                      <button 
+                        onClick={() => setReviewInstId(inst.id)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        View Details
                       </button>
                     )}
                   </td>
@@ -109,6 +136,15 @@ export default function PartnerDashboardClient({
           </tbody>
         </table>
       </div>
+
+      <ReviewDrawer 
+        installationId={reviewInstId} 
+        onClose={() => setReviewInstId(null)}
+        onReviewComplete={() => {
+          setReviewInstId(null);
+          router.refresh();
+        }}
+      />
 
       {/* Assignment Modal */}
       {selectedJob && (

@@ -27,7 +27,7 @@ export default async function PartnerDashboard() {
       id, 
       status, 
       technician_id,
-      customers(name, city, address),
+      customers(id, name, city, address),
       technicians:profiles!technician_id(name)
     `)
     .order('created_at', { ascending: false });

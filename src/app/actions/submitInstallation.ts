@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { notifySubmittedForVerification } from '@/lib/email/notifications';
 
 export async function submitInstallation(installationId: string) {
   try {
@@ -17,7 +18,7 @@ export async function submitInstallation(installationId: string) {
     // 2. Fetch installation and verify ownership
     const { data: installation, error: instError } = await supabase
       .from('installations')
-      .select('technician_id, status, checklist')
+      .select('technician_id, status, category, partner_id')
       .eq('id', installationId)
       .single();
 
@@ -34,26 +35,54 @@ export async function submitInstallation(installationId: string) {
     }
 
     // 3. Verify checklist is complete
-    // Depending on schema, checklist might be JSONB
-    const checklist = installation.checklist as Record<string, boolean> | null;
-    if (checklist) {
-      const allChecked = Object.values(checklist).every(val => val === true);
-      // Wait, some items might be false. We just ensure that required items are completed.
-      // Let's assume the UI sends updates, but we verify here if the essential keys exist and are true.
-      // Actually, we should check if they checked everything.
-      if (!allChecked) {
-        return { success: false, error: 'All checklist items must be completed before submission.' };
-      }
+    const { data: checklists, error: checklistError } = await supabase
+      .from('installation_checklists')
+      .select('status, is_required')
+      .eq('installation_id', installationId);
+
+    if (checklistError || !checklists || checklists.length === 0) {
+      return { success: false, error: 'Checklist not found or incomplete.' };
+    }
+
+    const hasPendingOrNo = checklists.some(c => 
+      c.is_required && (c.status === 'PENDING' || c.status === 'NO')
+    );
+
+    if (hasPendingOrNo) {
+      return { success: false, error: 'All required checklist items must be completed (YES or N/A) before submission.' };
     }
 
     // 4. Verify required photos exist
-    const { count, error: countError } = await supabase
+    const BASE_PHOTO_CATEGORIES = [
+      'Before Installation',
+      'Electrical Panel',
+      'MCB',
+      'Charger Mounting',
+      'Charger Serial Number',
+      'Wiring',
+      'Final Installed Charger',
+      'Charger Powered On',
+      'Charging Test'
+    ];
+    
+    const requiredCategories = installation.category === 'INSTALLATION_ONLY'
+      ? BASE_PHOTO_CATEGORIES
+      : [...BASE_PHOTO_CATEGORIES, 'Earthing'];
+
+    const { data: photos, error: photosError } = await supabase
       .from('installation_photos')
-      .select('*', { count: 'exact', head: true })
+      .select('category')
       .eq('installation_id', installationId);
 
-    if (countError || count === null || count === 0) {
-      return { success: false, error: 'At least one evidence photo must be uploaded before submission.' };
+    if (photosError || !photos) {
+      return { success: false, error: 'Failed to verify uploaded photos.' };
+    }
+
+    const uploadedCategories = new Set(photos.map((p: any) => p.category));
+    const missingPhotos = requiredCategories.filter(c => !uploadedCategories.has(c));
+
+    if (missingPhotos.length > 0) {
+      return { success: false, error: `Missing required photos: ${missingPhotos.join(', ')}` };
     }
 
     // 5. Update Status to UNDER_VERIFICATION
@@ -69,6 +98,10 @@ export async function submitInstallation(installationId: string) {
 
     if (updateError) {
       return { success: false, error: 'Failed to update installation status.' };
+    }
+
+    if (installation.partner_id) {
+      notifySubmittedForVerification(installationId, installation.partner_id).catch(console.error);
     }
 
     revalidatePath(`/technician/jobs/${installationId}`);

@@ -1,17 +1,21 @@
 export type InstallationStatus =
   | 'NEW'
-  | 'PARTNER ASSIGNED'
-  | 'TECHNICIAN ASSIGNED'
+  | 'PARTNER_ASSIGNED'
+  | 'TECHNICIAN_ASSIGNED'
   | 'SCHEDULED'
-  | 'IN PROGRESS'
+  | 'IN_PROGRESS'
   | 'COMPLETED'
-  | 'UNDER VERIFICATION'
+  | 'UNDER_VERIFICATION'
   | 'VERIFIED'
-  | 'ON HOLD'
+  | 'ON_HOLD'
   | 'RESCHEDULED'
-  | 'REVISIT REQUIRED'
+  | 'REVISIT_REQUIRED'
   | 'CANCELLED'
   | 'FAILED';
+
+export type InstallationCategory =
+  | 'INSTALLATION_ONLY'
+  | 'INSTALLATION_AND_EARTHING';
 
 export interface OEM {
   id: string; // e.g. OEM-MAH-001
@@ -113,6 +117,7 @@ export interface PhotoUpload {
 export interface Installation {
   id: string; // e.g. ACS-INST-2026-000582
   status: InstallationStatus;
+  category?: InstallationCategory;
   
   customerId: string;
   vehicleId: string;

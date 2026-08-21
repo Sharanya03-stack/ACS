@@ -50,6 +50,11 @@ export async function createSaleAction(formData: FormData) {
   let registrationNumber = formData.get('registrationNumber') as string;
   const chargerModel = formData.get('chargerModel') as string;
   const chargerPower = formData.get('chargerPower') as string;
+  const installationCategory = formData.get('installationCategory') as string;
+
+  if (installationCategory !== 'INSTALLATION_ONLY' && installationCategory !== 'INSTALLATION_AND_EARTHING') {
+    return { error: 'Invalid Installation Type selected' };
+  }
 
   if (!registrationNumber || registrationNumber.trim() === '') {
     registrationNumber = `VIN-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
@@ -124,6 +129,7 @@ export async function createSaleAction(formData: FormData) {
       .from('installations')
       .insert({
         status: 'NEW',
+        category: installationCategory,
         customer_id: customerId,
         vehicle_id: vehicleId,
         charger_id: chargerId,

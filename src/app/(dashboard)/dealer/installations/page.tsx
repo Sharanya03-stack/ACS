@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { CustomerNameCell } from '@/components/customers/CustomerDetailsDrawer';
 
 export default async function DealerInstallationsPage() {
   const supabase = await createClient();
@@ -18,7 +19,7 @@ export default async function DealerInstallationsPage() {
       id,
       status,
       created_at,
-      customer:customers(name, phone),
+      customer:customers(id, name, phone),
       vehicle:vehicles(model)
     `)
     .order('created_at', { ascending: false });
@@ -74,8 +75,7 @@ export default async function DealerInstallationsPage() {
                   <tr key={inst.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{inst.customer?.name}</div>
-                      <div className="text-sm text-gray-500">{inst.customer?.phone}</div>
+                      <CustomerNameCell id={inst.customer?.id} name={inst.customer?.name} city={inst.customer?.phone} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inst.vehicle?.model}</td>
                     <td className="px-6 py-4 whitespace-nowrap">

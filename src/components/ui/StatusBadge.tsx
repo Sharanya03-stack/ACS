@@ -12,22 +12,22 @@ export function StatusBadge({ status }: StatusBadgeProps) {
     case 'NEW':
       colorClass = 'bg-blue-50 text-blue-700 border-blue-200';
       break;
-    case 'PARTNER ASSIGNED':
-    case 'TECHNICIAN ASSIGNED':
+    case 'PARTNER_ASSIGNED':
+    case 'TECHNICIAN_ASSIGNED':
     case 'SCHEDULED':
       colorClass = 'bg-purple-50 text-purple-700 border-purple-200';
       break;
-    case 'IN PROGRESS':
-    case 'UNDER VERIFICATION':
+    case 'IN_PROGRESS':
+    case 'UNDER_VERIFICATION':
       colorClass = 'bg-yellow-50 text-yellow-700 border-yellow-200';
       break;
     case 'COMPLETED':
     case 'VERIFIED':
       colorClass = 'bg-green-50 text-green-700 border-green-200';
       break;
-    case 'ON HOLD':
+    case 'ON_HOLD':
     case 'RESCHEDULED':
-    case 'REVISIT REQUIRED':
+    case 'REVISIT_REQUIRED':
       colorClass = 'bg-orange-50 text-orange-700 border-orange-200';
       break;
     case 'CANCELLED':

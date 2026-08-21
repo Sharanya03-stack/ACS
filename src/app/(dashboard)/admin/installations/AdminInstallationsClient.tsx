@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { assignPartnerAction } from '@/app/actions/assignPartner';
 import { createClient } from '@/utils/supabase/client';
 import { Installation, Customer } from '@/lib/types';
+import { reviewInstallation } from '@/app/actions/reviewInstallation';
 import Image from 'next/image';
 import { BatteryCharging } from 'lucide-react';
 
@@ -22,6 +24,96 @@ export function AdminInstallationsClient({ initialInstallations, customers, deal
   const [selectedInst, setSelectedInst] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  
+  // New state for Review Workflow
+  const [checklists, setChecklists] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (selectedInst) {
+      loadDetails(selectedInst.id);
+    } else {
+      setChecklists([]);
+      setPhotos([]);
+      setRejectReason("");
+    }
+  }, [selectedInst]);
+
+  const [events, setEvents] = useState<any[]>([]);
+
+  const loadDetails = async (id: string) => {
+    setIsLoadingDetails(true);
+
+    // Fetch audit logs for timeline
+    const { data: eventData } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        actor:profiles!user_id (name, role)
+      `)
+      .eq('entity_type', 'INSTALLATION')
+      .eq('entity_id', id)
+      .order('created_at', { ascending: true });
+      
+    if (eventData) {
+      setEvents(eventData);
+    }
+
+    // Fetch checklists
+    const { data: checklistData } = await supabase
+      .from('installation_checklists')
+      .select('*')
+      .eq('installation_id', id);
+    if (checklistData) setChecklists(checklistData);
+
+    // Fetch photos metadata
+    const { data: photoData } = await supabase
+      .from('installation_photos')
+      .select('*')
+      .eq('installation_id', id);
+    
+    if (photoData) {
+      // Create signed URLs
+      const photosWithUrls = await Promise.all(photoData.map(async (photo) => {
+        const { data } = await supabase.storage
+          .from('installation-evidence')
+          .createSignedUrl(photo.storage_path, 3600); // 1 hour
+        return { ...photo, url: data?.signedUrl };
+      }));
+      setPhotos(photosWithUrls);
+    }
+    setIsLoadingDetails(false);
+  };
+
+  const getEventTitle = (event: any) => {
+    switch (event.action) {
+      case 'CREATED': return 'Installation Request Created';
+      case 'PARTNER_ASSIGNED': return 'Partner Assigned';
+      case 'TECHNICIAN_ASSIGNED': return 'Technician Assigned';
+      case 'STATUS_CHANGED': 
+        const status = event.new_value?.status;
+        if (status === 'IN_PROGRESS') return 'Installation Started';
+        if (status === 'UNDER_VERIFICATION') return 'Submitted for Verification';
+        if (status === 'REVISIT_REQUIRED') return 'Revisit Requested';
+        if (status === 'VERIFIED') return 'Installation Verified';
+        if (status === 'COMPLETED') return 'Installation Completed';
+        return `Status Changed to ${status}`;
+      default: return event.action;
+    }
+  };
+
+  const getEventDetails = (event: any) => {
+    switch (event.action) {
+      case 'STATUS_CHANGED':
+        if (event.new_value?.status === 'REVISIT_REQUIRED') {
+          return `Reason: ${event.new_value?.rejection_reason || 'No reason provided'}`;
+        }
+        return null;
+      default: return null;
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -38,39 +130,39 @@ export function AdminInstallationsClient({ initialInstallations, customers, deal
   };
 
   const verifyInstallation = async (id: string) => {
-    const { error } = await supabase.from('installations').update({ status: 'VERIFIED' }).eq('id', id);
-    if (!error) {
+    setIsSubmitting(true);
+    const res = await reviewInstallation(id, 'VERIFIED');
+    if (res.success) {
       router.refresh();
       setSelectedInst(null);
     } else {
-      alert("Failed to verify: " + error.message);
+      alert("Failed to verify: " + res.error);
     }
+    setIsSubmitting(false);
   };
 
   const rejectInstallation = async (id: string, reason: string) => {
-    const { error } = await supabase.from('installations').update({ 
-      status: 'REVISIT_REQUIRED', 
-      rejection_reason: reason 
-    }).eq('id', id);
-    if (!error) {
+    setIsSubmitting(true);
+    const res = await reviewInstallation(id, 'REVISIT_REQUIRED', reason);
+    if (res.success) {
       router.refresh();
       setSelectedInst(null);
     } else {
-      alert("Failed to reject: " + error.message);
+      alert("Failed to reject: " + res.error);
     }
+    setIsSubmitting(false);
   };
 
   const assignPartner = async (id: string, partnerId: string) => {
-    const { error } = await supabase.from('installations').update({ 
-      status: 'PARTNER_ASSIGNED', 
-      partner_id: partnerId 
-    }).eq('id', id);
-    if (!error) {
+    setIsSubmitting(true);
+    const res = await assignPartnerAction(id, partnerId);
+    if (res.success) {
       router.refresh();
       setSelectedInst(null);
     } else {
-      alert("Failed to assign partner: " + error.message);
+      alert("Failed to assign partner: " + res.error);
     }
+    setIsSubmitting(false);
   };
 
   const customer = customers.find(c => c.id === selectedInst?.customer_id);
@@ -260,47 +352,102 @@ export function AdminInstallationsClient({ initialInstallations, customers, deal
                       </div>
                     </div>
 
-                    {/* Timeline */}
+                    {/* Timeline Events */}
                     <div className="mt-8 border-t pt-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-6">Installation Timeline</h3>
-                      <div className="relative border-l-2 border-gray-200 ml-3 space-y-8">
-                        {/* 1. Request Created */}
-                        <div className="relative pl-6">
-                          <span className="absolute -left-2.5 top-1 h-5 w-5 rounded-full border-2 border-white bg-green-500"></span>
-                          <h4 className="text-sm font-semibold text-gray-900">Request Created</h4>
-                          <p className="text-xs text-gray-500">{new Date(selectedInst.created_at).toLocaleDateString()}</p>
+                      <h3 className="text-lg font-medium text-gray-900 mb-6">Event Timeline</h3>
+                      {isLoadingDetails ? (
+                        <div className="text-sm text-gray-500">Loading events...</div>
+                      ) : events.length > 0 ? (
+                        <div className="flow-root">
+                          <ul role="list" className="-mb-8">
+                            {events.map((event, eventIdx) => (
+                              <li key={event.id}>
+                                <div className="relative pb-8">
+                                  {eventIdx !== events.length - 1 ? (
+                                    <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                                  ) : null}
+                                  <div className="relative flex space-x-3">
+                                    <div>
+                                      <span className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center ring-8 ring-white">
+                                        <svg className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </span>
+                                    </div>
+                                    <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                                      <div>
+                                        <p className="text-sm text-gray-900 font-medium">{getEventTitle(event)}</p>
+                                        <p className="text-sm text-gray-500">By: {event.actor?.name || 'System'} ({event.actor?.role || 'System'})</p>
+                                        {getEventDetails(event) && (
+                                          <p className="mt-1 text-sm text-red-600">{getEventDetails(event)}</p>
+                                        )}
+                                      </div>
+                                      <div className="text-right text-xs text-gray-500 whitespace-nowrap">
+                                        <p>{new Date(event.created_at).toLocaleDateString()}</p>
+                                        <p>{new Date(event.created_at).toLocaleTimeString()}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        
-                        {/* 2. Partner Assigned */}
-                        <div className={`relative pl-6 ${selectedInst.status !== 'NEW' ? 'opacity-100' : 'opacity-40'}`}>
-                          <span className={`absolute -left-2.5 top-1 h-5 w-5 rounded-full border-2 border-white ${selectedInst.status !== 'NEW' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                          <h4 className="text-sm font-semibold text-gray-900">Partner Assigned</h4>
-                          {selectedInst.partner_id && <p className="text-xs text-gray-500">{partner?.name}</p>}
-                        </div>
-
-                        {/* 3. Tech Assigned */}
-                        <div className={`relative pl-6 ${['TECHNICIAN_ASSIGNED', 'IN_PROGRESS', 'UNDER_VERIFICATION', 'REVISIT_REQUIRED', 'VERIFIED', 'COMPLETED'].includes(selectedInst.status) ? 'opacity-100' : 'opacity-40'}`}>
-                          <span className={`absolute -left-2.5 top-1 h-5 w-5 rounded-full border-2 border-white ${['TECHNICIAN_ASSIGNED', 'IN_PROGRESS', 'UNDER_VERIFICATION', 'REVISIT_REQUIRED', 'VERIFIED', 'COMPLETED'].includes(selectedInst.status) ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                          <h4 className="text-sm font-semibold text-gray-900">Technician Assigned</h4>
-                          {selectedInst.technician_id && <p className="text-xs text-gray-500">{technician?.name}</p>}
-                        </div>
-
-                        {/* 4. Installation Submitted */}
-                        <div className={`relative pl-6 ${['UNDER_VERIFICATION', 'REVISIT_REQUIRED', 'VERIFIED', 'COMPLETED'].includes(selectedInst.status) ? 'opacity-100' : 'opacity-40'}`}>
-                          <span className={`absolute -left-2.5 top-1 h-5 w-5 rounded-full border-2 border-white ${['UNDER_VERIFICATION', 'REVISIT_REQUIRED', 'VERIFIED', 'COMPLETED'].includes(selectedInst.status) ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                          <h4 className="text-sm font-semibold text-gray-900">Installation Submitted</h4>
-                          {selectedInst.completed_at && <p className="text-xs text-gray-500">{new Date(selectedInst.completed_at).toLocaleDateString()}</p>}
-                        </div>
-
-                        {/* 5. Verified */}
-                        <div className={`relative pl-6 ${['VERIFIED', 'COMPLETED'].includes(selectedInst.status) ? 'opacity-100' : 'opacity-40'}`}>
-                          <span className={`absolute -left-2.5 top-1 h-5 w-5 rounded-full border-2 border-white ${['VERIFIED', 'COMPLETED'].includes(selectedInst.status) ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                          <h4 className="text-sm font-semibold text-gray-900">ACS Verified</h4>
-                        </div>
-                      </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">No events recorded.</p>
+                      )}
                     </div>
 
-                    {/* Technician Checklist & Photos from mock removed as these are now in a separate table, but we can query them later in another phase */}
+                    {/* Checklist */}
+                    {isLoadingDetails ? (
+                      <div className="mt-8 border-t pt-6 text-center text-gray-500">Loading checklist...</div>
+                    ) : checklists.length > 0 ? (
+                      <div className="mt-8 border-t pt-6">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">Checklist Results</h3>
+                        <ul className="space-y-3">
+                          {checklists.map((item) => (
+                            <li key={item.id} className="flex justify-between items-center bg-gray-50 p-3 rounded">
+                              <span className="text-sm font-medium">
+                                {item.item_name} {item.is_required && <span className="text-red-500">*</span>}
+                              </span>
+                              <span className={`px-2 py-1 text-xs font-bold rounded ${
+                                item.status === 'YES' ? 'bg-green-100 text-green-800' :
+                                item.status === 'NO' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-200 text-gray-800'
+                              }`}>
+                                {item.status}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {/* Photos */}
+                    {isLoadingDetails ? (
+                      <div className="mt-8 border-t pt-6 text-center text-gray-500">Loading photos...</div>
+                    ) : photos.length > 0 ? (
+                      <div className="mt-8 border-t pt-6">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">Evidence Photos</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          {photos.map((photo) => (
+                            <div key={photo.id} className="border rounded-md overflow-hidden bg-gray-50 flex flex-col">
+                              <div className="p-2 text-xs font-semibold bg-gray-100 border-b text-center capitalize">
+                                {photo.category.replace(/_/g, ' ')}
+                              </div>
+                              <div className="relative aspect-video">
+                                {photo.url ? (
+                                  <Image src={photo.url} alt={photo.category} fill className="object-cover" unoptimized />
+                                ) : (
+                                  <div className="flex items-center justify-center h-full text-xs text-gray-500">Image unavailable</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
                     {selectedInst.rejection_reason && (
                        <div className="mt-8 border-t pt-6">
                           <h3 className="text-lg font-medium text-red-600 mb-2">Rejection Reason</h3>

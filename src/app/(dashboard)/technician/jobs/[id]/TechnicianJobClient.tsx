@@ -24,11 +24,10 @@ const DEFAULT_CHECKLIST = [
   { item_code: 'c10', item_name: 'Installation completed', status: 'PENDING', is_required: true },
 ];
 
-const PHOTO_CATEGORIES = [
+const BASE_PHOTO_CATEGORIES = [
   'Before Installation',
   'Electrical Panel',
   'MCB',
-  'Earthing',
   'Charger Mounting',
   'Charger Serial Number',
   'Wiring',
@@ -36,6 +35,8 @@ const PHOTO_CATEGORIES = [
   'Charger Powered On',
   'Charging Test'
 ];
+
+const EARTHING_PHOTO_CATEGORY = 'Earthing';
 
 export default function TechnicianJobClient({ job, existingChecklists, existingPhotos }: { job: any, existingChecklists: any[], existingPhotos: any[] }) {
   const router = useRouter();
@@ -62,6 +63,10 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  const requiredCategories = job.category === 'INSTALLATION_ONLY'
+    ? BASE_PHOTO_CATEGORIES
+    : [...BASE_PHOTO_CATEGORIES.slice(0, 3), EARTHING_PHOTO_CATEGORY, ...BASE_PHOTO_CATEGORIES.slice(3)];
 
   useEffect(() => {
     // Generate public or signed URLs for existing photos
@@ -99,8 +104,8 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
 
   const isCompleted = ['UNDER_VERIFICATION', 'VERIFIED', 'COMPLETED'].includes(job.status);
   // Also support old spaced enum values if any exist
-  const isStarted = job.status === 'IN_PROGRESS' || job.status === 'IN PROGRESS';
-  const isCompletedLegacy = ['UNDER VERIFICATION', 'VERIFIED', 'COMPLETED'].includes(job.status);
+  const isStarted = job.status === 'IN_PROGRESS';
+  const isCompletedLegacy = ['UNDER_VERIFICATION', 'VERIFIED', 'COMPLETED'].includes(job.status);
   const isFinished = isCompleted || isCompletedLegacy;
 
   const handleStartJob = async () => {
@@ -163,8 +168,11 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
       return;
     }
     
-    if (existingPhotos.length === 0) {
-      toast.error("At least one evidence photo must be uploaded.");
+    const uploadedCategories = new Set(existingPhotos.map(p => p.category));
+    const missingPhotos = requiredCategories.filter(c => !uploadedCategories.has(c));
+
+    if (missingPhotos.length > 0) {
+      toast.error(`Missing required photos: ${missingPhotos.join(', ')}`);
       return;
     }
 
@@ -221,20 +229,24 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
 
       {!isFinished && !isStarted && (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
-          {(job.status === 'REVISIT_REQUIRED' || job.status === 'REVISIT REQUIRED') && job.rejection_reason && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <h3 className="text-red-800 font-bold mb-1">Installation Rejected</h3>
-              <p className="text-red-700 text-sm">{job.rejection_reason}</p>
+          {job.status === 'REVISIT_REQUIRED' && job.rejection_reason && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded p-4">
+              <h3 className="text-red-800 font-bold mb-1">Revisit Required</h3>
+              <p className="text-red-600 text-sm">{job.rejection_reason}</p>
+              <p className="text-red-500 text-xs mt-2">Please fix the issues below and resubmit the checklist and evidence.</p>
             </div>
           )}
-          <button 
-            onClick={handleStartJob}
-            className={`w-full text-white font-bold py-4 rounded-lg shadow-sm transition-colors ${
-              (job.status === 'REVISIT_REQUIRED' || job.status === 'REVISIT REQUIRED') ? 'bg-red-600 hover:bg-red-700' : 'bg-[#243B36] hover:bg-[#1a2b27]'
-            }`}
-          >
-            {(job.status === 'REVISIT_REQUIRED' || job.status === 'REVISIT REQUIRED') ? 'FIX REJECTION (START)' : 'START INSTALLATION'}
-          </button>
+
+          {!isStarted && !isFinished && (
+            <button 
+              onClick={handleStartJob}
+              className={`w-full py-4 rounded-xl text-white font-bold tracking-wider shadow-lg transition-colors ${
+                job.status === 'REVISIT_REQUIRED' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#243B36] hover:bg-[#1a2b27]'
+              }`}
+            >
+            {job.status === 'REVISIT_REQUIRED' ? 'FIX REJECTION (START)' : 'START INSTALLATION'}
+            </button>
+          )}
         </motion.div>
       )}
 
@@ -293,7 +305,7 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
             />
 
             <div className="grid grid-cols-2 gap-4">
-              {PHOTO_CATEGORIES.map((category, index) => {
+              {requiredCategories.map((category, index) => {
                 const url = photoUrls[category];
                 const isUploading = uploadingState[category];
                 

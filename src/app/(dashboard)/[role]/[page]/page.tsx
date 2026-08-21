@@ -2,6 +2,7 @@ import React from 'react';
 import { createClient } from '@/utils/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { AddEntityButton, RowActions } from '@/components/crud/CrudModals';
+import { CustomerNameCell } from '@/components/customers/CustomerDetailsDrawer';
 
 export default async function GenericListPage(props: { params: Promise<{ role: string, page: string }> }) {
   const params = await props.params;
@@ -94,7 +95,7 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
       title = page.charAt(0).toUpperCase() + page.slice(1).replace('-', ' ');
       columns = [
         {key: 'id', label: 'Inst. ID'}, 
-        {key: 'customerId', label: 'Customer ID'}, 
+        {key: 'customerName', label: 'Customer'}, 
         {key: 'status', label: 'Status'},
         {key: 'dateCreated', label: 'Date'}
       ];
@@ -116,7 +117,9 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
       data = (installations || []).map(i => ({ 
         id: i.id,
         customerId: i.customer_id,
-        status: i.status === 'IN_PROGRESS' ? 'IN PROGRESS' : (i.status === 'REVISIT_REQUIRED' ? 'REVISIT REQUIRED' : i.status),
+        customerName: Array.isArray(i.customers) ? i.customers[0]?.name : (i.customers as any)?.name || 'Unknown',
+        city: Array.isArray(i.customers) ? i.customers[0]?.city : (i.customers as any)?.city || '',
+        status: i.status,
         dateCreated: new Date(i.created_at).toLocaleDateString()
       }));
       break;
@@ -173,6 +176,10 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
                           </span>
                         ) : col.key === 'actions' ? (
                           <RowActions page={page} item={item} oems={parentOrgs} />
+                        ) : (page === 'customers' && col.key === 'name') ? (
+                          <CustomerNameCell id={item.id} name={item[col.key]} city={item.city} />
+                        ) : col.key === 'customerName' ? (
+                          <CustomerNameCell id={item.customerId} name={item.customerName} city={item.city} />
                         ) : (
                           item[col.key] || '-'
                         )}

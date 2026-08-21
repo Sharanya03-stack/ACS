@@ -96,7 +96,25 @@ export async function uploadEvidence(formData: FormData) {
       return { success: false, error: 'Failed to upload photo to storage.' };
     }
     
-    // 7. Insert DB Metadata
+    // 7. Check for existing photo in the same category and delete it from DB and storage
+    const { data: existingPhotos } = await supabase
+      .from('installation_photos')
+      .select('id, storage_path')
+      .eq('installation_id', installationId)
+      .eq('category', category);
+
+    if (existingPhotos && existingPhotos.length > 0) {
+      const pathsToDelete = existingPhotos.map(p => p.storage_path);
+      const idsToDelete = existingPhotos.map(p => p.id);
+      
+      // Delete from storage
+      await supabase.storage.from('installation-evidence').remove(pathsToDelete);
+      
+      // Delete from DB
+      await supabase.from('installation_photos').delete().in('id', idsToDelete);
+    }
+
+    // 8. Insert DB Metadata
     const { error: dbError } = await supabase
       .from('installation_photos')
       .insert({
