@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { User, Mail, Phone, MapPin, Building, Briefcase, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/utils/supabase/client';
+import { useRouter } from 'next/navigation';
+import { updateProfileAction } from '@/app/(dashboard)/[role]/profile/actions';
 
 export interface ProfileData {
   id: string;
@@ -12,50 +14,71 @@ export interface ProfileData {
   role: string;
   phone?: string;
   org_id?: string;
+  address?: string;
 }
 
 export default function ProfileClient({ initialUser }: { initialUser: ProfileData }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const supabase = createClient();
+  const router = useRouter();
   
   // Local state for form fields
   const [formData, setFormData] = useState({
     name: initialUser?.name || '',
     email: `${initialUser?.id}@acsenergy.com`,
     phone: initialUser?.phone || '+91 98765 43210',
-    location: 'Mumbai, Maharashtra',
+    address: initialUser?.address || 'Mumbai, Maharashtra',
     department: initialUser?.role === 'TECHNICIAN' ? 'Field Operations' : 'Management',
     bio: 'Enterprise user account for ACS Energy platform.'
   });
 
+  useEffect(() => {
+    setFormData({
+      name: initialUser?.name || '',
+      email: `${initialUser?.id}@acsenergy.com`,
+      phone: initialUser?.phone || '+91 98765 43210',
+      address: initialUser?.address || 'Mumbai, Maharashtra',
+      department: initialUser?.role === 'TECHNICIAN' ? 'Field Operations' : 'Management',
+      bio: 'Enterprise user account for ACS Energy platform.'
+    });
+  }, [initialUser]);
+
   const handleSave = async () => {
     setIsSaving(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ name: formData.name, phone: formData.phone })
-      .eq('id', initialUser.id)
-      .select();
+    
+    try {
+      const result = await updateProfileAction({
+        name: formData.name,
+        phone: formData.phone,
+        address: formData.address
+      });
       
-    setIsSaving(false);
-    
-    if (error || !data || data.length === 0) {
-      toast.error('Failed to update profile.');
-      return;
-    }
-    
-    setIsEditing(false);
-    toast.success('Profile updated successfully!', {
-      style: {
-        background: '#243B36',
-        color: '#fff',
-        fontWeight: '500'
-      },
-      iconTheme: {
-        primary: '#D6A84F',
-        secondary: '#243B36',
+      setIsSaving(false);
+      
+      if (result.error) {
+        console.error('Profile update failed:', result.error);
+        toast.error('Failed to update profile: ' + result.error);
+        return;
       }
-    });
+      
+      setIsEditing(false);
+      toast.success('Profile updated successfully!', {
+        style: {
+          background: '#243B36',
+          color: '#fff',
+          fontWeight: '500'
+        },
+        iconTheme: {
+          primary: '#D6A84F',
+          secondary: '#243B36',
+        }
+      });
+    } catch (e: any) {
+      setIsSaving(false);
+      console.error('Profile update threw error:', e);
+      toast.error('Failed to update profile: ' + (e.message || 'Network error'));
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -192,18 +215,18 @@ export default function ProfileClient({ initialUser }: { initialUser: ProfileDat
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-gray-400" />
-                  Location
+                  Address
                 </label>
                 {isEditing ? (
                   <input 
                     type="text" 
-                    name="location"
-                    value={formData.location} 
+                    name="address"
+                    value={formData.address} 
                     onChange={handleChange}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#243B36] focus:ring-[#243B36] sm:text-sm h-10 border px-3" 
                   />
                 ) : (
-                  <p className="text-gray-900">{formData.location}</p>
+                  <p className="text-gray-900">{formData.address}</p>
                 )}
               </div>
             </div>

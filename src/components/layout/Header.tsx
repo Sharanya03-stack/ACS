@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import { DashboardUser } from './DashboardClientWrapper';
+import { NotificationBell } from './NotificationBell';
 
 export function Header({ user }: { user: DashboardUser }) {
   const pathname = usePathname();
@@ -70,10 +71,7 @@ export function Header({ user }: { user: DashboardUser }) {
     <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 sticky top-0 z-30">
       <h1 className="text-xl font-semibold text-primary">{getPageTitle()}</h1>
       <div className="flex items-center space-x-4">
-        <button className="text-gray-500 hover:text-gray-700 relative p-2 transition-transform hover:scale-110">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
-        </button>
+        <NotificationBell userId={user?.id || ''} rolePrefix={rolePrefix} />
         <div className="border-l border-gray-200 h-8 mx-2"></div>
         <div className="relative" ref={dropdownRef}>
           <button 

@@ -124,16 +124,17 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
           )}
 
           {(page === 'oems' || page === 'dealerships' || page === 'partners') && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Contact Email</label>
-                <input type="email" name="contactEmail" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Address</label>
-                <input type="text" name="address" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
-              </div>
-            </>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Contact Email</label>
+              <input type="email" name="contactEmail" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+            </div>
+          )}
+
+          {(page === 'oems' || page === 'dealerships' || page === 'partners' || page === 'technicians') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Address</label>
+              <input type="text" name="address" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+            </div>
           )}
 
           <div className="pt-4 flex justify-end gap-2">
@@ -241,16 +242,17 @@ export function RowActions({ page, item, oems = [] }: { page: string, item: any,
           )}
 
           {(page === 'oems' || page === 'dealerships' || page === 'partners') && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Contact Email</label>
-                <input type="email" name="contactEmail" defaultValue={item.email || item.contact_email} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Address</label>
-                <input type="text" name="address" defaultValue={item.address} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
-              </div>
-            </>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Contact Email</label>
+              <input type="email" name="contactEmail" defaultValue={item.email || item.contact_email} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+            </div>
+          )}
+
+          {(page === 'oems' || page === 'dealerships' || page === 'partners' || page === 'technicians') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Address</label>
+              <input type="text" name="address" defaultValue={item.address} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+            </div>
           )}
 
           <div className="pt-4 flex justify-end gap-2">

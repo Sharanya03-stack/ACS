@@ -60,6 +60,7 @@ const NAVIGATION_ITEMS: Record<Role, { name: string; href: string; icon: any }[]
     { name: 'Completed', href: '/partner/completed', icon: CheckCircle },
     { name: 'Revisits', href: '/partner/revisits', icon: RotateCcw },
     { name: 'Technicians', href: '/partner/technicians', icon: Users },
+    { name: 'All Installations', href: '/partner/installations', icon: FileText },
     { name: 'Settings', href: '/partner/settings', icon: Settings },
   ],
   TECHNICIAN: [

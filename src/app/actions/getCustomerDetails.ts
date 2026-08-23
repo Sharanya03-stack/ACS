@@ -31,9 +31,9 @@ export async function getCustomerDetails(customerId: string) {
       { data: charger },
       { data: installation }
     ] = await Promise.all([
-      supabase.from('vehicles').select('*').eq('customer_id', customerId).single(),
-      supabase.from('chargers').select('*').eq('customer_id', customerId).single(),
-      supabase.from('installations').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(1).single()
+      supabase.from('vehicles').select('*').eq('customer_id', customerId).maybeSingle(),
+      supabase.from('chargers').select('*').eq('customer_id', customerId).maybeSingle(),
+      supabase.from('installations').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(1).maybeSingle()
     ]);
 
     // 4. Resolve Partner and Technician names (Requires admin client due to cross-org RLS limitations for dealers/oems)
@@ -52,14 +52,18 @@ export async function getCustomerDetails(customerId: string) {
       }
 
       if (installation.technician_id) {
-        const { data: tech } = await adminClient.from('profiles').select('name').eq('id', installation.technician_id).single();
+        const { data: tech } = await adminClient.from('profiles').select('name, address').eq('id', installation.technician_id).single();
         if (tech) technicianName = tech.name;
       }
     }
 
+    // 5. Fetch profile for role-based UI
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
     return {
       success: true,
       data: {
+        profile,
         customer,
         vehicle,
         charger,

@@ -2,8 +2,13 @@ import React from 'react';
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import PartnerDashboardClient from './PartnerDashboardClient';
+import { getInstallations } from '@/utils/queries';
 
-export default async function PartnerDashboard() {
+export default async function PartnerDashboard({
+  searchParams
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
@@ -19,24 +24,21 @@ export default async function PartnerDashboard() {
     redirect('/login');
   }
 
-  // Fetch partner installations and technicians in parallel
+  const params = await searchParams;
+  const page = typeof params.page === 'string' ? parseInt(params.page) : 1;
+  const search = typeof params.search === 'string' ? params.search : undefined;
+  const status = typeof params.status === 'string' ? params.status : undefined;
+  const category = typeof params.category === 'string' ? params.category : undefined;
+  const technician_id = typeof params.technician_id === 'string' ? params.technician_id : undefined;
+
   const [
-    { data: installations },
+    { data: installations, count },
     { data: technicians }
   ] = await Promise.all([
-    supabase
-      .from('installations')
-      .select(`
-        id, 
-        status, 
-        technician_id,
-        customers(id, name, city, address),
-        technicians:profiles!technician_id(name)
-      `)
-      .order('created_at', { ascending: false }),
+    getInstallations(supabase, { page, search, status, category, technician_id }),
     supabase
       .from('profiles')
-      .select('id, name')
+      .select('id, name, role')
       .eq('role', 'TECHNICIAN')
       .eq('org_id', profile.org_id)
   ]);
@@ -44,6 +46,7 @@ export default async function PartnerDashboard() {
   return (
     <PartnerDashboardClient 
       installations={installations || []} 
+      totalCount={count || 0}
       technicians={technicians || []} 
     />
   );

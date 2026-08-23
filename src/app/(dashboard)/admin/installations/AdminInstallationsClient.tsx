@@ -7,17 +7,20 @@ import { createClient } from '@/utils/supabase/client';
 import { Installation, Customer } from '@/lib/types';
 import { reviewInstallation } from '@/app/actions/reviewInstallation';
 import Image from 'next/image';
-import { BatteryCharging } from 'lucide-react';
+import { BatteryCharging, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { InstallationFilters } from '@/components/ui/InstallationFilters';
+import { Pagination } from '@/components/ui/Pagination';
 
 interface Props {
   initialInstallations: any[];
-  customers: any[];
+  totalCount: number;
+  oems: any[];
   dealers: any[];
   partners: any[];
   technicians: any[];
 }
 
-export function AdminInstallationsClient({ initialInstallations, customers, dealers, partners, technicians }: Props) {
+export function AdminInstallationsClient({ initialInstallations, totalCount, oems, dealers, partners, technicians }: Props) {
   const router = useRouter();
   const supabase = createClient();
   
@@ -165,10 +168,9 @@ export function AdminInstallationsClient({ initialInstallations, customers, deal
     setIsSubmitting(false);
   };
 
-  const customer = customers.find(c => c.id === selectedInst?.customer_id);
-  const dealer = dealers.find(d => d.id === selectedInst?.dealer_id);
-  const partner = partners.find(p => p.id === selectedInst?.partner_id);
-  const technician = technicians.find(t => t.id === selectedInst?.technician_id);
+  const handleExport = async (params: any) => {
+    // We will hook this up to the server action shortly
+  };
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 relative">
@@ -191,51 +193,66 @@ export function AdminInstallationsClient({ initialInstallations, customers, deal
         </div>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Installation ID</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dealer</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Partner</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th scope="col" className="relative px-6 py-3"><span className="sr-only">View</span></th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {initialInstallations.map((inst) => {
-              const c = customers.find(x => x.id === inst.customer_id);
-              const d = dealers.find(x => x.id === inst.dealer_id);
-              const p = partners.find(x => x.id === inst.partner_id);
+      <InstallationFilters 
+        showOem={true}
+        showDealer={true}
+        showPartner={true}
+        showTechnician={true}
+        oems={oems}
+        dealers={dealers}
+        partners={partners}
+        technicians={technicians}
+        onExport={handleExport}
+      />
 
-              return (
-                <tr key={inst.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedInst(inst)}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{c?.name}</div>
-                    <div className="text-sm text-gray-500">{c?.city}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{d?.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p?.name || '-'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(inst.status)}`}>
-                      {inst.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button className="text-acs-primary hover:text-acs-primary/80">View Details</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Installation ID</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dealer</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Partner</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" className="relative px-6 py-3"><span className="sr-only">View</span></th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {initialInstallations.map((inst) => {
+                const c = inst.customers;
+                const d = inst.dealers;
+                const p = inst.partners;
+
+                return (
+                  <tr key={inst.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedInst(inst)}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{c?.name}</div>
+                      <div className="text-sm text-gray-500">{c?.city}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{d?.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p?.name || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(inst.status)}`}>
+                        {inst.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button className="text-acs-primary hover:text-acs-primary/80">View Details</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
         {initialInstallations.length === 0 && (
           <div className="p-8 text-center text-gray-500">
             No records found.
           </div>
         )}
+        <Pagination totalItems={totalCount} />
       </div>
 
       {/* Side Drawer */}
@@ -336,19 +353,26 @@ export function AdminInstallationsClient({ initialInstallations, customers, deal
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Customer</h3>
-                        <p className="mt-1 text-sm text-gray-900 font-semibold">{customer?.name}</p>
-                        <p className="text-sm text-gray-500">{customer?.phone}</p>
-                        <p className="text-sm text-gray-500">{customer?.address}, {customer?.city}</p>
+                        <p className="mt-1 text-sm text-gray-900 font-semibold">{selectedInst.customers?.name}</p>
+                        <p className="text-sm text-gray-500">{selectedInst.customers?.phone}</p>
+                        <p className="text-sm text-gray-500">{selectedInst.customers?.address}, {selectedInst.customers?.city}</p>
                       </div>
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Dealer</h3>
-                        <p className="mt-1 text-sm text-gray-900">{dealer?.name}</p>
-                        <p className="text-sm text-gray-500">{dealer?.metadata?.city}</p>
+                        <p className="mt-1 text-sm text-gray-900">{selectedInst.dealers?.name}</p>
                       </div>
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Partner & Technician</h3>
-                        <p className="mt-1 text-sm text-gray-900">{partner?.name || 'Unassigned'}</p>
-                        <p className="text-sm text-gray-500">{technician?.name || 'Unassigned'}</p>
+                        <p className="mt-1 text-sm text-gray-900">{selectedInst.partners?.name || 'Unassigned'}</p>
+                        {selectedInst.partners?.address && (
+                          <p className="text-sm text-gray-500">{selectedInst.partners.address}</p>
+                        )}
+                        <p className="mt-2 text-sm text-gray-500">
+                          <span className="font-medium">Tech:</span> {selectedInst.technicians?.name ? selectedInst.technicians.name : 'Unassigned'}
+                        </p>
+                        {selectedInst.technicians?.address && (
+                          <p className="text-sm text-gray-500 pl-10">{selectedInst.technicians.address}</p>
+                        )}
                       </div>
                     </div>
 

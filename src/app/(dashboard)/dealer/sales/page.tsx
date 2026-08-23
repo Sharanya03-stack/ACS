@@ -10,6 +10,7 @@ export default function DealerSalesPage() {
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [chargerModel, setChargerModel] = useState("7.4kW AC Wallbox");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -113,7 +114,7 @@ export default function DealerSalesPage() {
           <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700">Charger Model</label>
-              <select name="chargerModel" defaultValue="7.4kW AC Wallbox" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border bg-white">
+              <select name="chargerModel" value={chargerModel} onChange={(e) => setChargerModel(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border bg-white">
                 <option value="7.4kW AC Wallbox">7.4kW AC Wallbox</option>
                 <option value="3.3kW AC Wallbox">3.3kW AC Wallbox</option>
                 <option value="11kW AC Wallbox">11kW AC Wallbox</option>
@@ -121,7 +122,7 @@ export default function DealerSalesPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Power Rating</label>
-              <input readOnly type="text" name="chargerPower" defaultValue="7.4kW" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border bg-gray-50 text-gray-500" />
+              <input readOnly type="text" name="chargerPower" value={chargerModel.split(' ')[0]} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border bg-gray-50 text-gray-500" />
             </div>
           </div>
         </div>

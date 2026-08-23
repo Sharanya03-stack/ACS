@@ -3,6 +3,7 @@
 import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import { isValidPhone } from '@/utils/validation';
 
 async function requireAdmin() {
   const supabase = await createServerClient();
@@ -41,6 +42,10 @@ export async function createOEM(formData: FormData) {
     const name = formData.get('name') as string;
     const contactEmail = formData.get('contactEmail') as string;
     const contactPhone = formData.get('contactPhone') as string;
+
+    if (contactPhone && !isValidPhone(contactPhone)) {
+      return { error: 'Invalid contact phone number format' };
+    }
     const address = formData.get('address') as string;
 
     if (!name || name.trim() === '') {

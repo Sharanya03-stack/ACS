@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { notifyPartnerAssigned } from '@/lib/email/notifications';
+import { notifyOrganization } from '@/lib/notifications';
 
 export async function assignPartnerAction(installationId: string, partnerId: string) {
   const supabase = await createClient();
@@ -49,8 +50,17 @@ export async function assignPartnerAction(installationId: string, partnerId: str
     return { success: false, error: 'Failed to assign partner due to a database error.' };
   }
 
-  // 3. Send Email Notification Non-Blockingly
+  // 4. Send Notifications Non-Blockingly
   notifyPartnerAssigned(installationId, partnerId).catch(console.error);
+  
+  notifyOrganization(
+    partnerId, 
+    'PARTNER', 
+    'New Installation Assigned', 
+    `Installation ${installationId} has been assigned to your organization.`,
+    'installations',
+    installationId
+  ).catch(console.error);
 
   revalidatePath('/admin/installations');
   return { success: true };

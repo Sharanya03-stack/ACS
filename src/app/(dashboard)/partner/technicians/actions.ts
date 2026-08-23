@@ -3,6 +3,7 @@
 import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import { isValidPhone } from '@/utils/validation';
 
 async function requirePartnerContext() {
   const supabase = await createServerClient();
@@ -43,6 +44,11 @@ export async function createTechnician(formData: FormData) {
     const name = formData.get('name') as string;
     const email = formData.get('email') as string;
     const phone = formData.get('phone') as string;
+    const address = formData.get('address') as string;
+
+    if (phone && !isValidPhone(phone)) {
+      return { error: 'Invalid phone number format' };
+    }
     const password = formData.get('password') as string;
 
     if (!name || name.trim() === '') return { error: 'Name is required' };
@@ -76,6 +82,7 @@ export async function createTechnician(formData: FormData) {
       org_id: partnerOrgId,
       name,
       phone: phone || null,
+      address: address || null,
       status: 'ACTIVE'
     });
 
@@ -99,6 +106,7 @@ export async function updateTechnician(id: string, formData: FormData) {
 
     const name = formData.get('name') as string;
     const phone = formData.get('phone') as string;
+    const address = formData.get('address') as string;
 
     if (!name || name.trim() === '') return { error: 'Name is required' };
 
@@ -114,7 +122,8 @@ export async function updateTechnician(id: string, formData: FormData) {
 
     const { error } = await adminClient.from('profiles').update({
       name,
-      phone: phone || null
+      phone: phone || null,
+      address: address || null
     }).eq('id', id);
 
     if (error) throw error;

@@ -3,8 +3,15 @@ import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { CustomerNameCell } from '@/components/customers/CustomerDetailsDrawer';
+import { getInstallations } from '@/utils/queries';
+import { InstallationFilters } from '@/components/ui/InstallationFilters';
+import { Pagination } from '@/components/ui/Pagination';
 
-export default async function TechnicianDashboard() {
+export default async function TechnicianDashboard({
+  searchParams
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,17 +27,17 @@ export default async function TechnicianDashboard() {
     redirect('/login');
   }
 
+  const params = await searchParams;
+  const page = typeof params.page === 'string' ? parseInt(params.page) : 1;
+  const search = typeof params.search === 'string' ? params.search : undefined;
+  const status = typeof params.status === 'string' ? params.status : undefined;
+  const category = typeof params.category === 'string' ? params.category : undefined;
+
   // Fetch technician jobs
   // RLS will automatically restrict this to technician_id = auth.uid()
-  const { data: jobs } = await supabase
-    .from('installations')
-    .select(`
-      id, 
-      status, 
-      scheduled_date,
-      customers(id, name, city, address)
-    `)
-    .order('created_at', { ascending: false });
+  const { data: jobs, count } = await getInstallations(supabase, {
+    page, search, status, category
+  });
 
   return (
     <div className="max-w-md mx-auto py-6 px-4">
@@ -39,6 +46,8 @@ export default async function TechnicianDashboard() {
         <p className="text-sm text-gray-500">Today's assigned installations.</p>
       </div>
 
+      <InstallationFilters />
+
       <div className="space-y-4">
         {!jobs || jobs.length === 0 ? (
           <div className="text-center p-6 bg-gray-50 rounded-lg border border-gray-200">
@@ -46,7 +55,7 @@ export default async function TechnicianDashboard() {
           </div>
         ) : (
           jobs.map(job => {
-            const customer = Array.isArray(job.customers) ? job.customers[0] : job.customers as any;
+            const customer = job.customers;
             const isCompleted = ['UNDER_VERIFICATION', 'VERIFIED', 'COMPLETED'].includes(job.status);
             
             return (
@@ -64,7 +73,7 @@ export default async function TechnicianDashboard() {
                   </div>
                   <div className="mb-1 text-lg">
                     {customer ? (
-                      <CustomerNameCell id={customer.id} name={customer.name} />
+                      <CustomerNameCell id={customer.id} name={`${customer.name || ''}`} />
                     ) : (
                       <span className="text-gray-400 font-bold">Unknown Customer</span>
                     )}
@@ -87,6 +96,7 @@ export default async function TechnicianDashboard() {
             );
           })
         )}
+        <Pagination totalItems={count || 0} />
       </div>
     </div>
   );

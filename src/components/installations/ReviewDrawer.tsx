@@ -3,7 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { reviewInstallation } from '@/app/actions/reviewInstallation';
+import toast from 'react-hot-toast';
+import { formatPowerRating } from '@/utils/formatters';
 import Image from 'next/image';
+import { InstallationNotes } from './InstallationNotes';
 
 interface ReviewDrawerProps {
   installationId: string | null;
@@ -228,7 +231,7 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-500">Charger</h3>
-                    <p>{details.chargers?.model} ({details.chargers?.power_rating})</p>
+                    <p>{details.chargers?.model} ({formatPowerRating(details.chargers?.power_rating)})</p>
                     <p>SN: {details.chargers?.serial_number}</p>
                   </div>
                   <div>
@@ -328,6 +331,9 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
                     </div>
                   </div>
                 )}
+
+                {/* Installation Notes */}
+                <InstallationNotes installationId={details.id} />
               </>
             ) : (
               <div className="text-center py-12 text-gray-500">Could not load installation details.</div>

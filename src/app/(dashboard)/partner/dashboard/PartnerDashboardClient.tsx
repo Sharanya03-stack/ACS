@@ -5,12 +5,16 @@ import { assignTechnicianAction } from './actions';
 import { CustomerNameCell } from '@/components/customers/CustomerDetailsDrawer';
 import { ReviewDrawer } from '@/components/installations/ReviewDrawer';
 import { useRouter } from 'next/navigation';
+import { InstallationFilters } from '@/components/ui/InstallationFilters';
+import { Pagination } from '@/components/ui/Pagination';
 
 export default function PartnerDashboardClient({ 
   installations, 
+  totalCount,
   technicians 
 }: { 
   installations: any[], 
+  totalCount: number,
   technicians: any[] 
 }) {
   const router = useRouter();
@@ -59,45 +63,51 @@ export default function PartnerDashboardClient({
         <p className="mt-1 text-sm text-gray-500">Manage your active installation jobs and technicians.</p>
       </div>
 
+      <InstallationFilters 
+        showTechnician={true}
+        technicians={technicians}
+      />
+
       <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
           <h2 className="text-lg font-medium text-gray-900">Installation Jobs</h2>
         </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-white">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job ID</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer / Location</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Technician</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {installations.map((inst) => {
-              const customer = inst.customers;
-              const tech = inst.technicians;
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-white">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job ID</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer / Location</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Technician</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {installations.map((inst) => {
+                const customer = inst.customers;
+                const tech = inst.technicians;
 
-              return (
-                <tr key={inst.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {customer ? (
-                      <CustomerNameCell id={customer.id} name={customer.name} city={`${customer.address}, ${customer.city}`} />
-                    ) : (
-                      <span className="text-gray-400 italic">Unknown</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(inst.status)}`}>
-                      {inst.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {tech ? tech.name : <span className="text-gray-400 italic">Unassigned</span>}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {(!inst.technician_id || inst.status === 'NEW' || inst.status === 'PARTNER_ASSIGNED') && (
+                return (
+                  <tr key={inst.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {customer ? (
+                        <CustomerNameCell id={customer.id} name={`${customer.name || ''}`} city={`${customer.address}, ${customer.city}`} />
+                      ) : (
+                        <span className="text-gray-400 italic">Unknown</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(inst.status)}`}>
+                        {inst.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {tech ? tech.name : <span className="text-gray-400 italic">Unassigned</span>}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {(!inst.technician_id || inst.status === 'NEW' || inst.status === 'PARTNER_ASSIGNED') && (
                       <button 
                         onClick={() => setSelectedJob(inst)}
                         className="text-acs-primary hover:text-acs-primary/80"
@@ -135,6 +145,8 @@ export default function PartnerDashboardClient({
             )}
           </tbody>
         </table>
+        </div>
+        <Pagination totalItems={totalCount} />
       </div>
 
       <ReviewDrawer 

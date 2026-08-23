@@ -21,7 +21,7 @@ export async function startJobAction(installationId: string) {
   // Fetch installation to verify ownership and current status
   const { data: installation, error: fetchError } = await supabase
     .from('installations')
-    .select('technician_id, status')
+    .select('technician_id, status, partner_id, dealer_id')
     .eq('id', installationId)
     .single();
 
@@ -47,6 +47,34 @@ export async function startJobAction(installationId: string) {
     .eq('technician_id', user.id); // Double-lock
 
   if (updateError) return { error: 'Failed to update database' };
+
+  // Notify Partner
+  if (installation.partner_id) {
+    import('@/lib/notifications').then(({ notifyOrganization }) => {
+      notifyOrganization(
+        installation.partner_id,
+        'PARTNER',
+        'Installation Started',
+        `Technician has started work on installation ${installationId}.`,
+        'installations',
+        installationId
+      ).catch(console.error);
+    });
+  }
+  
+  // Notify Dealer
+  if (installation.dealer_id) {
+    import('@/lib/notifications').then(({ notifyOrganization }) => {
+      notifyOrganization(
+        installation.dealer_id,
+        'DEALER',
+        'Installation Started',
+        `Installation ${installationId} is now in progress.`,
+        'installations',
+        installationId
+      ).catch(console.error);
+    });
+  }
 
   revalidatePath(`/technician/jobs/${installationId}`);
   revalidatePath('/technician/dashboard');

@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { AddEntityButton, RowActions } from '@/components/crud/CrudModals';
 import { CustomerNameCell } from '@/components/customers/CustomerDetailsDrawer';
+import { formatPowerRating } from '@/utils/formatters';
 
 export default async function GenericListPage(props: { params: Promise<{ role: string, page: string }> }) {
   const params = await props.params;
@@ -70,19 +71,19 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
       title = 'Chargers';
       columns = [{key: 'id', label: 'Serial Number'}, {key: 'model', label: 'Model'}, {key: 'power', label: 'Power'}, {key: 'vehicleId', label: 'Vehicle VIN'}];
       const { data: chargers } = await supabase.from('chargers').select('id, serial_number, model, power_rating, vehicle_id');
-      data = (chargers || []).map(c => ({ ...c, id: c.serial_number, power: c.power_rating, vehicleId: c.vehicle_id }));
+      data = (chargers || []).map(c => ({ ...c, id: c.serial_number, power: formatPowerRating(c.power_rating), vehicleId: c.vehicle_id }));
       break;
     case 'partners':
       title = 'Installation Partners';
-      columns = [{key: 'id', label: 'Partner ID'}, {key: 'name', label: 'Name'}, {key: 'contactPerson', label: 'Contact'}, {key: 'phone', label: 'Phone'}, {key: 'status', label: 'Status'}];
+      columns = [{key: 'id', label: 'Partner ID'}, {key: 'name', label: 'Name'}, {key: 'location', label: 'Location'}, {key: 'phone', label: 'Phone'}, {key: 'status', label: 'Status'}];
       const { data: partners } = await supabase.from('organizations').select('id, name, address, contact_phone, contact_email, status').eq('type', 'PARTNER').eq('status', 'ACTIVE');
-      data = (partners || []).map(p => ({ ...p, contactPerson: '-', phone: p.contact_phone, email: p.contact_email }));
+      data = (partners || []).map(p => ({ ...p, location: p.address || '-', phone: p.contact_phone, email: p.contact_email }));
       break;
     case 'technicians':
       title = 'Technicians';
       columns = [{key: 'id', label: 'Tech ID'}, {key: 'name', label: 'Name'}, {key: 'location', label: 'Location'}, {key: 'phone', label: 'Phone'}, {key: 'status', label: 'Status'}];
-      const { data: technicians } = await supabase.from('profiles').select('id, name, phone, status').eq('role', 'TECHNICIAN').eq('status', 'ACTIVE');
-      data = (technicians || []).map(t => ({ ...t, location: '-' }));
+      const { data: technicians } = await supabase.from('profiles').select('id, name, phone, address, status').eq('role', 'TECHNICIAN').eq('status', 'ACTIVE');
+      data = (technicians || []).map(t => ({ ...t, location: t.address || '-' }));
       break;
     case 'installations':
     case 'requests':
@@ -139,7 +140,9 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
           <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
           <p className="mt-1 text-sm text-gray-500">View and manage {title.toLowerCase()} in the system.</p>
         </div>
-        <AddEntityButton page={page} oems={parentOrgs} />
+        {!(role === 'admin' && page === 'technicians') && (
+          <AddEntityButton page={page} oems={parentOrgs} />
+        )}
       </div>
 
       <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">

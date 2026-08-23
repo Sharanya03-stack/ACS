@@ -1,8 +1,15 @@
 import React from 'react';
 import { createClient, getUserProfile } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { getInstallations } from '@/utils/queries';
+import { InstallationFilters } from '@/components/ui/InstallationFilters';
+import { Pagination } from '@/components/ui/Pagination';
 
-export default async function OemDashboard() {
+export default async function OemDashboard({
+  searchParams
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient();
   const profile = await getUserProfile();
 
@@ -10,13 +17,21 @@ export default async function OemDashboard() {
     redirect('/login');
   }
 
+  const params = await searchParams;
+  const page = typeof params.page === 'string' ? parseInt(params.page) : 1;
+  const search = typeof params.search === 'string' ? params.search : undefined;
+  const status = typeof params.status === 'string' ? params.status : undefined;
+  const category = typeof params.category === 'string' ? params.category : undefined;
+  const dealer_id = typeof params.dealer_id === 'string' ? params.dealer_id : undefined;
+
   // 1. Fetch exactly what RLS allows us to see (no client filtering!)
   const [
     { count: totalDealers },
     { count: totalVehicles },
     { count: pendingInstallations },
     { count: completedInstallations },
-    { data: recentInstallations }
+    { data: recentInstallations, count: totalInstallations },
+    { data: dealersData }
   ] = await Promise.all([
     supabase.from('organizations')
       .select('*', { count: 'exact', head: true })
@@ -33,11 +48,12 @@ export default async function OemDashboard() {
       .select('*', { count: 'exact', head: true })
       .in('status', ['COMPLETED', 'VERIFIED']),
       
-    supabase.from('installations')
-      .select('id, status, vehicles(model), organizations!installations_dealer_id_fkey(name)')
-      .order('created_at', { ascending: false })
-      .limit(10)
+    getInstallations(supabase, { page, search, status, category, dealer_id }),
+    
+    supabase.from('organizations').select('id, name').eq('type', 'DEALER')
   ]);
+
+  const dealers = dealersData || [];
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -65,47 +81,55 @@ export default async function OemDashboard() {
         </div>
       </div>
       
+      <InstallationFilters 
+        showDealer={true}
+        dealers={dealers}
+      />
+      
       <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-lg font-medium text-gray-900">Recent Installations</h2>
+          <h2 className="text-lg font-medium text-gray-900">Installations</h2>
         </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-white">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Installation ID</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dealer</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {(!recentInstallations || recentInstallations.length === 0) ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-white">
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
-                  No records found.
-                </td>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Installation ID</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dealer</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               </tr>
-            ) : (
-              recentInstallations.map((inst: any) => {
-                const vehicleModel = inst.vehicles?.model || 'Unknown';
-                const dealerName = inst.organizations?.name || 'Unknown';
-  
-                return (
-                  <tr key={inst.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vehicleModel}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dealerName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                        {inst.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {(!recentInstallations || recentInstallations.length === 0) ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
+                    No records found.
+                  </td>
+                </tr>
+              ) : (
+                recentInstallations.map((inst: any) => {
+                  const vehicleModel = inst.vehicles?.model || 'Unknown';
+                  const dealerName = inst.dealers?.name || 'Unknown';
+    
+                  return (
+                    <tr key={inst.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vehicleModel}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dealerName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                          {inst.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination totalItems={totalInstallations || 0} />
       </div>
     </div>
   );

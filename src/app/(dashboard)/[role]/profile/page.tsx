@@ -3,6 +3,9 @@ import ProfileClient from '@/components/ProfileClient';
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function ProfilePage() {
   const supabase = await createClient();
   const { data: { session }, error } = await supabase.auth.getSession();

@@ -3,6 +3,7 @@
 import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { notifyRevisitRequested, notifyInstallationVerified } from '@/lib/email/notifications';
+import { createNotification, notifyOrganization } from '@/lib/notifications';
 
 export async function reviewInstallation(installationId: string, decision: 'VERIFIED' | 'REVISIT_REQUIRED', reason?: string) {
   const supabase = await createServerClient();
@@ -77,8 +78,42 @@ export async function reviewInstallation(installationId: string, decision: 'VERI
   // Trigger emails non-blockingly
   if (decision === 'REVISIT_REQUIRED' && installation.technician_id) {
     notifyRevisitRequested(installationId, installation.technician_id, reason?.trim() || '').catch(console.error);
+    createNotification({
+      user_id: installation.technician_id,
+      title: 'Revisit Required',
+      message: `Installation ${installationId} requires a revisit. Reason: ${reason}`,
+      entity_type: 'installations',
+      entity_id: installationId
+    }).catch(console.error);
+    if (installation.partner_id) {
+      notifyOrganization(
+        installation.partner_id,
+        'PARTNER',
+        'Revisit Required',
+        `Installation ${installationId} requires a revisit by the technician.`,
+        'installations',
+        installationId
+      ).catch(console.error);
+    }
   } else if (decision === 'VERIFIED' && installation.partner_id) {
     notifyInstallationVerified(installationId, installation.partner_id).catch(console.error);
+    notifyOrganization(
+      installation.partner_id,
+      'PARTNER',
+      'Installation Verified',
+      `Installation ${installationId} has been successfully verified.`,
+      'installations',
+      installationId
+    ).catch(console.error);
+    if (installation.technician_id) {
+      createNotification({
+        user_id: installation.technician_id,
+        title: 'Installation Verified',
+        message: `Your work on installation ${installationId} has been verified.`,
+        entity_type: 'installations',
+        entity_id: installationId
+      }).catch(console.error);
+    }
   }
 
   return { success: true };

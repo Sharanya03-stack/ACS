@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { notifySubmittedForVerification } from '@/lib/email/notifications';
+import { notifyOrganization } from '@/lib/notifications';
 
 export async function submitInstallation(installationId: string) {
   try {
@@ -102,6 +103,14 @@ export async function submitInstallation(installationId: string) {
 
     if (installation.partner_id) {
       notifySubmittedForVerification(installationId, installation.partner_id).catch(console.error);
+      notifyOrganization(
+        installation.partner_id,
+        'PARTNER',
+        'Installation Submitted',
+        `Job ${installationId} is now submitted for verification.`,
+        'installations',
+        installationId
+      ).catch(console.error);
     }
 
     revalidatePath(`/technician/jobs/${installationId}`);

@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { notifyTechnicianAssigned } from '@/lib/email/notifications';
+import { createNotification } from '@/lib/notifications';
 
 export async function assignTechnicianAction(installationId: string, technicianId: string) {
   const supabase = await createClient();
@@ -77,6 +78,14 @@ export async function assignTechnicianAction(installationId: string, technicianI
   }
 
   notifyTechnicianAssigned(installationId, technicianId).catch(console.error);
+
+  createNotification({
+    user_id: technicianId,
+    title: 'New Job Assigned',
+    message: `You have been assigned to installation ${installationId}.`,
+    entity_type: 'installations',
+    entity_id: installationId
+  }).catch(console.error);
 
   revalidatePath('/partner/dashboard');
   return { success: true };

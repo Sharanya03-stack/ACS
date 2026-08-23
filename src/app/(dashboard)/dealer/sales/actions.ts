@@ -3,6 +3,7 @@
 import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { isValidPhone } from '@/utils/validation';
 
 export async function createSaleAction(formData: FormData) {
   const supabase = await createServerClient();
@@ -54,6 +55,10 @@ export async function createSaleAction(formData: FormData) {
 
   if (installationCategory !== 'INSTALLATION_ONLY' && installationCategory !== 'INSTALLATION_AND_EARTHING') {
     return { error: 'Invalid Installation Type selected' };
+  }
+
+  if (!isValidPhone(customerPhone)) {
+    return { error: 'Invalid phone number format.' };
   }
 
   if (!registrationNumber || registrationNumber.trim() === '') {
@@ -178,6 +183,6 @@ export async function createSaleAction(formData: FormData) {
     }
 
     // Return a generic, safe error to the client
-    return { error: 'Failed to create sale. Please try again or contact support.' };
+    return { error: 'Failed to create sale: ' + (err instanceof Error ? err.message : String(err)) };
   }
 }
