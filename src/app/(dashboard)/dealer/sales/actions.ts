@@ -48,7 +48,7 @@ export async function createSaleAction(formData: FormData) {
   const customerState = formData.get('customerState') as string;
   const customerPincode = formData.get('customerPincode') as string;
   const vehicleModel = formData.get('vehicleModel') as string;
-  let registrationNumber = formData.get('registrationNumber') as string;
+  let vin = formData.get('vin') as string;
   const chargerModel = formData.get('chargerModel') as string;
   const chargerPower = formData.get('chargerPower') as string;
   const installationCategory = formData.get('installationCategory') as string;
@@ -61,8 +61,8 @@ export async function createSaleAction(formData: FormData) {
     return { error: 'Invalid phone number format.' };
   }
 
-  if (!registrationNumber || registrationNumber.trim() === '') {
-    registrationNumber = `VIN-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+  if (!vin || vin.trim() === '') {
+    vin = `VIN-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
   }
 
   // State array to track successful creations for potential rollback
@@ -95,7 +95,7 @@ export async function createSaleAction(formData: FormData) {
     const { data: vehData, error: vehErr } = await supabase
       .from('vehicles')
       .insert({
-        vin: registrationNumber,
+        vin: vin,
         model: vehicleModel,
         customer_id: customerId,
         dealer_id: dealerId,

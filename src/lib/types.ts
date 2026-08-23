@@ -57,7 +57,7 @@ export interface Customer {
 export interface Vehicle {
   id: string; // VIN, e.g. MAH123456789
   model: string;
-  registrationNumber: string;
+  vin: string;
   saleDate: string;
   deliveryDate: string;
   customerId: string;

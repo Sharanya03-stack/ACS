@@ -15,7 +15,7 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
   
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, org_id')
     .eq('id', user.id)
     .single();
 
@@ -63,9 +63,9 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
       break;
     case 'vehicles':
       title = 'Vehicles';
-      columns = [{key: 'id', label: 'VIN'}, {key: 'model', label: 'Model'}, {key: 'registrationNumber', label: 'Registration'}, {key: 'saleDate', label: 'Sale Date'}];
-      const { data: vehicles } = await supabase.from('vehicles').select('id, vin, model, registration_number, sale_date');
-      data = (vehicles || []).map(v => ({ ...v, registrationNumber: v.registration_number, saleDate: v.sale_date, id: v.vin }));
+      columns = [{key: 'id', label: 'VIN'}, {key: 'model', label: 'Model'}, {key: 'saleDate', label: 'Sale Date'}];
+      const { data: vehicles } = await supabase.from('vehicles').select('id, vin, model, sale_date');
+      data = (vehicles || []).map(v => ({ ...v, saleDate: v.sale_date, id: v.vin }));
       break;
     case 'chargers':
       title = 'Chargers';
@@ -104,8 +104,13 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
       let query = supabase.from('installations').select(`
         id, status, created_at, customer_id,
         customers(name, city),
-        vehicles(model, registration_number)
+        vehicles(model, vin)
       `);
+      
+      if (profile.role === 'OEM') query = query.eq('oem_id', profile.org_id);
+      if (profile.role === 'DEALER') query = query.eq('dealer_id', profile.org_id);
+      if (profile.role === 'PARTNER') query = query.eq('partner_id', profile.org_id);
+      if (profile.role === 'TECHNICIAN') query = query.eq('technician_id', user.id);
       
       if (page === 'new') query = query.in('status', ['NEW', 'PENDING_PARTNER']);
       else if (page === 'active') query = query.in('status', ['PENDING_PARTNER', 'SCHEDULED', 'IN_PROGRESS']);

@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import { DashboardUser } from './DashboardClientWrapper';
 import { NotificationBell } from './NotificationBell';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Header({ user }: { user: DashboardUser }) {
   const pathname = usePathname();
@@ -71,6 +72,7 @@ export function Header({ user }: { user: DashboardUser }) {
     <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 sticky top-0 z-30">
       <h1 className="text-xl font-semibold text-primary">{getPageTitle()}</h1>
       <div className="flex items-center space-x-4">
+        <ThemeToggle />
         <NotificationBell userId={user?.id || ''} rolePrefix={rolePrefix} />
         <div className="border-l border-gray-200 h-8 mx-2"></div>
         <div className="relative" ref={dropdownRef}>

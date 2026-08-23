@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getInstallations } from '@/utils/queries';
 import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
+import Link from 'next/link';
 
 export default async function OemDashboard({
   searchParams
@@ -48,7 +49,7 @@ export default async function OemDashboard({
       .select('*', { count: 'exact', head: true })
       .in('status', ['COMPLETED', 'VERIFIED']),
       
-    getInstallations(supabase, { page, search, status, category, dealer_id }),
+    getInstallations(supabase, { page, search, status, category, dealer_id, oem_id: profile.profile.org_id || undefined }),
     
     supabase.from('organizations').select('id, name').eq('type', 'DEALER')
   ]);
@@ -63,22 +64,42 @@ export default async function OemDashboard({
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
-          <dt className="text-sm font-medium text-gray-500 truncate">Associated Dealerships</dt>
+        <Link href="/oem/dealerships" className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow group relative">
+          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Associated Dealerships</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{totalDealers || 0}</dd>
-        </div>
-        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
-          <dt className="text-sm font-medium text-gray-500 truncate">Total EV Sales</dt>
+          <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Link>
+        <Link href="/oem/vehicles" className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow group relative">
+          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Total EV Sales</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{totalVehicles || 0}</dd>
-        </div>
-        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
-          <dt className="text-sm font-medium text-gray-500 truncate">Pending Charger Installs</dt>
+          <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Link>
+        <Link href="/oem/active" className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow group relative">
+          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Pending Charger Installs</dt>
           <dd className="mt-1 text-3xl font-semibold text-acs-accent">{pendingInstallations || 0}</dd>
-        </div>
-        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
-          <dt className="text-sm font-medium text-gray-500 truncate">Completed Installs</dt>
+          <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Link>
+        <Link href="/oem/completed" className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow group relative">
+          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Completed Installs</dt>
           <dd className="mt-1 text-3xl font-semibold text-green-600">{completedInstallations || 0}</dd>
-        </div>
+          <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Link>
       </div>
       
       <InstallationFilters 

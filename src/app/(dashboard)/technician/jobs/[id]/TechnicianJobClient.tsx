@@ -222,7 +222,7 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
           <p className="text-sm text-gray-600 mb-2">{customer?.phone}</p>
           <p className="text-sm text-gray-600 mb-4">{customer?.address}, {customer?.city}, {customer?.pincode}</p>
           <div className="text-sm px-3 py-2 bg-gray-50 rounded-lg border border-gray-100">
-            <span className="font-semibold text-gray-700">Vehicle:</span> {vehicle?.model} ({vehicle?.registration_number})
+            <span className="font-semibold text-gray-700">Vehicle:</span> {vehicle?.model} (VIN: {vehicle?.vin})
           </div>
         </div>
       </motion.div>

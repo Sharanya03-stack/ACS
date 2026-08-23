@@ -42,9 +42,32 @@ function Modal({ isOpen, onClose, title, children }: ModalProps) {
 // ADD BUTTON COMPONENT
 // --------------------------------------------------------
 
+import { createCustomer, createVehicle, createCharger } from '@/app/actions/entityActions';
+import { createClient } from '@/utils/supabase/client';
+
 export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [options, setOptions] = useState<{dealers: any[], customers: any[], installations: any[]}>({ dealers: [], customers: [], installations: [] });
+
+  React.useEffect(() => {
+    if (isOpen && ['customers', 'vehicles', 'chargers'].includes(page)) {
+      const fetchOptions = async () => {
+        const supabase = createClient();
+        const [dRes, cRes, iRes] = await Promise.all([
+          supabase.from('organizations').select('id, name').eq('type', 'DEALER').eq('status', 'ACTIVE'),
+          supabase.from('customers').select('id, name, phone'),
+          supabase.from('installations').select('id')
+        ]);
+        setOptions({
+          dealers: dRes.data || [],
+          customers: cRes.data || [],
+          installations: iRes.data || []
+        });
+      };
+      fetchOptions();
+    }
+  }, [isOpen, page]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -57,6 +80,9 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
     else if (page === 'dealerships') result = await createDealer(formData);
     else if (page === 'partners') result = await createPartner(formData);
     else if (page === 'technicians') result = await createTechnician(formData);
+    else if (page === 'customers') result = await createCustomer(formData);
+    else if (page === 'vehicles') result = await createVehicle(formData);
+    else if (page === 'chargers') result = await createCharger(formData);
 
     setIsSubmitting(false);
 
@@ -68,7 +94,7 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
     }
   };
 
-  if (!['oems', 'dealerships', 'partners', 'technicians'].includes(page)) {
+  if (!['oems', 'dealerships', 'partners', 'technicians', 'customers', 'vehicles', 'chargers'].includes(page)) {
     return null; // No Add button for these pages
   }
 
@@ -86,11 +112,15 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
 
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title={`Add ${entityName}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Name *</label>
-            <input required type="text" name="name" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
-          </div>
+          {/* Common Fields for Orgs/Techs */}
+          {!['customers', 'vehicles', 'chargers'].includes(page) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Name *</label>
+              <input required type="text" name="name" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+            </div>
+          )}
 
+          {/* Technicians */}
           {page === 'technicians' && (
             <>
               <div>
@@ -104,6 +134,7 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
             </>
           )}
 
+          {/* Dealerships */}
           {page === 'dealerships' && (
             <div>
               <label className="block text-sm font-medium text-gray-700">Parent OEM *</label>
@@ -116,25 +147,106 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
             </div>
           )}
 
+          {/* Org/Tech Common */}
           {(page === 'oems' || page === 'dealerships' || page === 'partners' || page === 'technicians') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Contact Phone</label>
-              <input type="text" name={page === 'technicians' ? 'phone' : 'contactPhone'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
-            </div>
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Contact Phone</label>
+                <input type="text" name={page === 'technicians' ? 'phone' : 'contactPhone'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              {(page !== 'technicians') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Contact Email</label>
+                  <input type="email" name="contactEmail" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Address</label>
+                <input type="text" name="address" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+            </>
           )}
 
-          {(page === 'oems' || page === 'dealerships' || page === 'partners') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Contact Email</label>
-              <input type="email" name="contactEmail" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
-            </div>
+          {/* Customers */}
+          {page === 'customers' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name *</label>
+                <input required type="text" name="name" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Phone *</label>
+                <input required type="tel" name="phone" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" name="email" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Dealer (if Admin/OEM)</label>
+                <select name="dealerId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                  <option value="">Select Dealer...</option>
+                  {options.dealers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">City</label>
+                <input type="text" name="city" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+            </>
           )}
 
-          {(page === 'oems' || page === 'dealerships' || page === 'partners' || page === 'technicians') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Address</label>
-              <input type="text" name="address" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
-            </div>
+          {/* Vehicles */}
+          {page === 'vehicles' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">VIN *</label>
+                <input required type="text" name="vin" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Model *</label>
+                <input required type="text" name="model" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Customer</label>
+                <select name="customerId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                  <option value="">Select Customer...</option>
+                  {options.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Dealer (if Admin/OEM)</label>
+                <select name="dealerId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                  <option value="">Select Dealer...</option>
+                  {options.dealers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+
+          {/* Chargers */}
+          {page === 'chargers' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Serial Number *</label>
+                <input required type="text" name="serial_number" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Model *</label>
+                <input required type="text" name="model" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Power Rating (kW) *</label>
+                <input required type="number" step="0.1" name="power_rating" defaultValue="7.4" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Installation ID</label>
+                <select name="installationId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                  <option value="">Select Installation...</option>
+                  {options.installations.map(i => <option key={i.id} value={i.id}>{i.id.substring(0, 8)}</option>)}
+                </select>
+              </div>
+            </>
           )}
 
           <div className="pt-4 flex justify-end gap-2">

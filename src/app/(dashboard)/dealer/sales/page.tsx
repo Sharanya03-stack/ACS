@@ -83,8 +83,20 @@ export default function DealerSalesPage() {
               <input required type="text" name="customerCity" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">State</label>
-              <input required type="text" name="customerState" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border" />
+              <label className="block text-sm font-medium text-gray-700">State *</label>
+              <select required name="customerState" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border bg-white">
+                <option value="">Select State</option>
+                <option value="Andhra Pradesh">Andhra Pradesh</option>
+                <option value="Karnataka">Karnataka</option>
+                <option value="Maharashtra">Maharashtra</option>
+                <option value="Tamil Nadu">Tamil Nadu</option>
+                <option value="Telangana">Telangana</option>
+                <option value="Delhi">Delhi</option>
+                <option value="Gujarat">Gujarat</option>
+                <option value="Haryana">Haryana</option>
+                <option value="Uttar Pradesh">Uttar Pradesh</option>
+                <option value="Kerala">Kerala</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Pincode</label>
@@ -102,8 +114,8 @@ export default function DealerSalesPage() {
               <input required type="text" name="vehicleModel" placeholder="e.g. Mahindra XUV400" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Registration Number</label>
-              <input type="text" name="registrationNumber" placeholder="e.g. MH12AB1234" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border" />
+              <label className="block text-sm font-medium text-gray-700">VIN (Vehicle Identification Number) *</label>
+              <input type="text" name="vin" placeholder="e.g. 1HGCM82633A" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border" />
             </div>
           </div>
         </div>

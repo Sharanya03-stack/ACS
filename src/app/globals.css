@@ -5,6 +5,8 @@
   --color-foreground: var(--foreground);
   --color-primary: #243B36;
   --color-accent: #D6A84F;
+  --color-acs-primary: #243B36;
+  --color-acs-accent: #D6A84F;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

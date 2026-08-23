@@ -29,7 +29,7 @@ export default async function TechnicianJobPage(props: { params: Promise<{ id: s
     .select(`
       id, status, scheduled_date, rejection_reason,
       customers(name, city, address, phone, pincode),
-      vehicles(model, registration_number)
+      vehicles(model, vin)
     `)
     .eq('id', id)
     .single();

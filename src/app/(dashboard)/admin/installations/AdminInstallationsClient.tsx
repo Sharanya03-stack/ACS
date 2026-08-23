@@ -7,9 +7,10 @@ import { createClient } from '@/utils/supabase/client';
 import { Installation, Customer } from '@/lib/types';
 import { reviewInstallation } from '@/app/actions/reviewInstallation';
 import Image from 'next/image';
-import { BatteryCharging, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BatteryCharging, Filter, ChevronLeft, ChevronRight, X, User } from 'lucide-react';
 import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   initialInstallations: any[];
@@ -37,12 +38,27 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
   React.useEffect(() => {
     if (selectedInst) {
       loadDetails(selectedInst.id);
+      document.body.style.overflow = 'hidden';
     } else {
       setChecklists([]);
       setPhotos([]);
-      setRejectReason("");
+      document.body.style.overflow = '';
     }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [selectedInst]);
+
+  const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 }
+  };
+
+  const panelVariants: any = {
+    hidden: { opacity: 0, scale: 0.97, y: 15 },
+    visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", damping: 25, stiffness: 300, duration: 0.3 } },
+    exit: { opacity: 0, scale: 0.97, y: 10, transition: { duration: 0.2, ease: "easeOut" } }
+  };
 
   const [events, setEvents] = useState<any[]>([]);
 
@@ -256,26 +272,44 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
       </div>
 
       {/* Side Drawer */}
-      {selectedInst && (
-        <div className="fixed inset-0 overflow-hidden z-50">
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setSelectedInst(null)} />
-            <section className="absolute inset-y-0 right-0 pl-10 max-w-full flex">
-              <div className="w-screen max-w-2xl">
-                <div className="h-full flex flex-col bg-white shadow-xl overflow-y-scroll">
-                  <div className="px-4 py-6 bg-gray-50 border-b sm:px-6 flex justify-between items-center">
-                    <div>
-                      <h2 className="text-lg font-medium text-gray-900">Installation Details</h2>
-                      <p className="text-sm text-gray-500">{selectedInst.id}</p>
-                    </div>
-                    <button onClick={() => setSelectedInst(null)} className="text-gray-400 hover:text-gray-500">
-                      <span className="sr-only">Close panel</span>
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="relative flex-1 px-4 py-6 sm:px-6 space-y-6">
+      <AnimatePresence>
+        {selectedInst && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <motion.div 
+              variants={backdropVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" 
+              onClick={() => setSelectedInst(null)} 
+              aria-hidden="true" 
+            />
+            
+            <motion.div 
+              variants={panelVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="relative z-10 flex flex-col w-full max-w-5xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="px-6 py-5 bg-[#243B36] text-white flex justify-between items-center shrink-0 shadow-sm z-20">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2" id="modal-title">
+                    <BatteryCharging className="h-5 w-5 text-[#D6A84F]" />
+                    INSTALLATION DETAILS
+                  </h2>
+                  <p className="text-sm text-gray-300 mt-1">{selectedInst.id}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedInst(null)} 
+                  className="text-gray-300 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
+                >
+                  <span className="sr-only">Close panel</span>
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50/50 space-y-6">
                     
                     {/* Status Banner */}
                     <div className={`p-4 rounded-md flex justify-between items-center ${getStatusColor(selectedInst.status)}`}>
@@ -480,12 +514,10 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                     )}
 
                   </div>
-                </div>
-              </div>
-            </section>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

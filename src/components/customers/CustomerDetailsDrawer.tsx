@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { getCustomerDetails } from '@/app/actions/getCustomerDetails';
-import { X, User, Car, Zap, Wrench, Clock, FileText, CheckCircle2, MapPin, Loader2 } from 'lucide-react';
+import { updateCustomer } from '@/app/actions/entityActions';
+import { X, User, Car, Zap, Wrench, Clock, FileText, CheckCircle2, MapPin, Loader2, Edit2, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { WarrantyEditor } from './WarrantyEditor';
 import { formatPowerRating } from '@/utils/formatters';
@@ -11,6 +12,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: string, onClose: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const [saving, setSaving] = useState(false);
 
   // Stop body scroll when drawer is open
   useEffect(() => {
@@ -39,6 +43,34 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
   const vehicle = data?.vehicle;
   const charger = data?.charger;
   const inst = data?.installation;
+
+  const canEdit = data?.profile?.role === 'ACS_ADMIN' || data?.profile?.role === 'DEALER';
+
+  const handleEditClick = () => {
+    setEditForm({
+      name: customer?.name || '',
+      phone: customer?.phone || '',
+      email: customer?.email || '',
+      address: customer?.address || '',
+      city: customer?.city || '',
+      state: customer?.state || '',
+      pincode: customer?.pincode || ''
+    });
+    setIsEditingCustomer(true);
+  };
+
+  const handleSaveCustomer = async () => {
+    setSaving(true);
+    const res = await updateCustomer(customerId, editForm);
+    setSaving(false);
+    if (!res.success) {
+      toast.error(res.error || 'Failed to update customer');
+    } else {
+      toast.success('Customer updated successfully');
+      setData({ ...data, customer: { ...customer, ...editForm } });
+      setIsEditingCustomer(false);
+    }
+  };
 
   // Animation variants
   const backdropVariants: any = {
@@ -135,53 +167,109 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
                 
                 {/* 1. Personal Information */}
                 <motion.div variants={itemVariants} className="bg-white p-6 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100">
-                  <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3 mb-4 flex items-center gap-2">
-                    <User className="h-4 w-4 text-[#D6A84F]" /> 
-                    Personal Information
-                  </h3>
-                  <div className="grid grid-cols-2 gap-y-5 gap-x-4">
-                    <div className="col-span-2 sm:col-span-1">
-                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Name</p>
-                      <p className="text-sm font-medium text-gray-900">{customer?.name || 'N/A'}</p>
-                    </div>
-                    <div className="col-span-2 sm:col-span-1">
-                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Customer ID</p>
-                      <p className="text-sm text-gray-900">{customer?.customer_id || customer?.id?.slice(0,8).toUpperCase() || 'N/A'}</p>
-                    </div>
-                    <div className="col-span-2 sm:col-span-1">
-                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Phone</p>
-                      <p className="text-sm text-gray-900">{customer?.phone || 'N/A'}</p>
-                    </div>
-                    <div className="col-span-2 sm:col-span-1">
-                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Email</p>
-                      <p className="text-sm text-gray-900">{customer?.email || 'N/A'}</p>
-                    </div>
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
+                    <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                      <User className="h-4 w-4 text-[#D6A84F]" /> 
+                      Personal Information
+                    </h3>
+                    {!isEditingCustomer && canEdit && (
+                      <button onClick={handleEditClick} className="text-gray-400 hover:text-[#243B36] transition-colors p-1">
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
+                  
+                  {isEditingCustomer ? (
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-4">
+                      <div className="col-span-2">
+                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Full Name</label>
+                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Phone</label>
+                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} />
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Email</label>
+                        <input type="email" className="w-full border rounded-md p-1.5 text-sm" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-y-5 gap-x-4">
+                      <div className="col-span-2 sm:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Name</p>
+                        <p className="text-sm font-medium text-gray-900">{customer?.name || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Customer ID</p>
+                        <p className="text-sm text-gray-900">{customer?.customer_id || customer?.id?.slice(0,8).toUpperCase() || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Phone</p>
+                        <p className="text-sm text-gray-900">{customer?.phone || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Email</p>
+                        <p className="text-sm text-gray-900">{customer?.email || 'N/A'}</p>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
 
                 {/* 2. Address */}
                 <motion.div variants={itemVariants} className="bg-white p-6 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100">
-                  <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3 mb-4 flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-[#D6A84F]" /> 
-                    Address Details
-                  </h3>
-                  <div className="grid grid-cols-2 gap-y-5 gap-x-4">
-                    <div className="col-span-2">
-                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Address</p>
-                      <p className="text-sm text-gray-900">{customer?.address || 'N/A'}</p>
-                    </div>
-                    <div className="col-span-2 sm:col-span-1">
-                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">City</p>
-                      <p className="text-sm text-gray-900">{customer?.city || 'N/A'}</p>
-                    </div>
-                    <div className="col-span-2 sm:col-span-1">
-                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">State & Pincode</p>
-                      <p className="text-sm text-gray-900">
-                        {customer?.state ? `${customer.state} ` : 'N/A '} 
-                        {customer?.pincode ? `- ${customer.pincode}` : ''}
-                      </p>
-                    </div>
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
+                    <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-[#D6A84F]" /> 
+                      Address Details
+                    </h3>
+                    {!isEditingCustomer && canEdit && (
+                      <button onClick={handleEditClick} className="text-gray-400 hover:text-[#243B36] transition-colors p-1">
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
+
+                  {isEditingCustomer ? (
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-4">
+                      <div className="col-span-2">
+                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Full Address</label>
+                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} />
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">City</label>
+                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.city} onChange={e => setEditForm({...editForm, city: e.target.value})} />
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Pincode</label>
+                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.pincode} onChange={e => setEditForm({...editForm, pincode: e.target.value})} />
+                      </div>
+                      <div className="col-span-2 mt-2 flex justify-end gap-2">
+                        <button onClick={() => setIsEditingCustomer(false)} className="px-3 py-1.5 text-sm border rounded-md">Cancel</button>
+                        <button onClick={handleSaveCustomer} disabled={saving} className="px-3 py-1.5 text-sm bg-[#D6A84F] text-black font-medium rounded-md hover:bg-[#c59844] flex items-center gap-2">
+                          <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save All'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-y-5 gap-x-4">
+                      <div className="col-span-2">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Address</p>
+                        <p className="text-sm text-gray-900">{customer?.address || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">City</p>
+                        <p className="text-sm text-gray-900">{customer?.city || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">State & Pincode</p>
+                        <p className="text-sm text-gray-900">
+                          {customer?.state ? `${customer.state} ` : 'N/A '} 
+                          {customer?.pincode ? `- ${customer.pincode}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
 
                 {/* 3. Vehicle Information */}
@@ -196,7 +284,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
                       <p className="text-sm text-gray-900 font-medium">{vehicle?.model || 'N/A'}</p>
                     </div>
                     <div className="col-span-2 sm:col-span-1">
-                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Registration / VIN</p>
+                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">VIN</p>
                       <p className="text-sm text-gray-900 font-mono bg-gray-50 inline-block px-2 py-0.5 rounded border border-gray-100">{vehicle?.vin || 'N/A'}</p>
                     </div>
                     <div className="col-span-2 sm:col-span-1">

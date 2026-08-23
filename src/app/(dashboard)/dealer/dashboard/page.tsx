@@ -41,18 +41,33 @@ export default async function DealerDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
-        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
-          <dt className="text-sm font-medium text-gray-500 truncate">Total EV Sales</dt>
+        <Link href="/dealer/vehicles" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow rounded-lg border border-gray-200 p-5 group relative block">
+          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Total EV Sales</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{totalSales || 0}</dd>
-        </div>
-        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
-          <dt className="text-sm font-medium text-gray-500 truncate">Pending Installations</dt>
+          <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Link>
+        <Link href="/dealer/active" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow rounded-lg border border-gray-200 p-5 group relative block">
+          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Pending Installations</dt>
           <dd className="mt-1 text-3xl font-semibold text-acs-accent">{pendingInstallations || 0}</dd>
-        </div>
-        <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5">
-          <dt className="text-sm font-medium text-gray-500 truncate">Completed Installations</dt>
+          <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Link>
+        <Link href="/dealer/completed" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow rounded-lg border border-gray-200 p-5 group relative block">
+          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Completed Installations</dt>
           <dd className="mt-1 text-3xl font-semibold text-green-600">{completedInstallations || 0}</dd>
-        </div>
+          <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Link>
       </div>
       
       <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
