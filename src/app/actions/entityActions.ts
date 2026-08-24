@@ -105,6 +105,30 @@ export async function createVehicle(formData: FormData) {
   return { success: true };
 }
 
+export async function updateVehicle(id: string, formData: FormData) {
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Unauthorized' };
+  
+  const { data: profile } = await supabase.from('profiles').select('role, org_id').eq('id', user.id).single();
+  if (!profile || !profile.org_id) return { error: 'No org' };
+
+  if (profile.role !== 'OEM' && profile.role !== 'ACS_ADMIN' && profile.role !== 'DEALER') {
+    return { error: 'Unauthorized to update vehicle' };
+  }
+
+  const { error } = await supabase.from('vehicles').update({
+    vin: formData.get('vin'),
+    model: formData.get('model'),
+    sale_date: formData.get('sale_date') || new Date().toISOString().split('T')[0],
+    delivery_date: formData.get('delivery_date') || new Date().toISOString().split('T')[0],
+  }).eq('id', id);
+
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
 export async function createCharger(formData: FormData) {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -114,9 +138,38 @@ export async function createCharger(formData: FormData) {
     serial_number: formData.get('serial_number'),
     model: formData.get('model'),
     power_rating: parseFloat(formData.get('power_rating') as string) || 7.4,
-    vehicle_id: formData.get('vehicleId') || null,
-    installation_id: formData.get('installationId') || null
+    vehicle_id: formData.get('vehicleId'),
+    customer_id: formData.get('customerId'),
+    supplied_date: formData.get('supplied_date') || new Date().toISOString().split('T')[0],
+    warranty_months: parseInt(formData.get('warranty_months') as string) || null,
+    warranty_start_date: formData.get('warranty_start_date') || null,
+    warranty_expiry_date: formData.get('warranty_expiry_date') || null
   });
+
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function updateCharger(id: string, formData: FormData) {
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Unauthorized' };
+  
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  if (!profile || (profile.role !== 'ACS_ADMIN' && profile.role !== 'DEALER')) {
+    return { error: 'Unauthorized to update charger' };
+  }
+
+  const { error } = await supabase.from('chargers').update({
+    serial_number: formData.get('serial_number'),
+    model: formData.get('model'),
+    power_rating: parseFloat(formData.get('power_rating') as string) || 7.4,
+    supplied_date: formData.get('supplied_date'),
+    warranty_months: formData.get('warranty_months') ? parseInt(formData.get('warranty_months') as string) : null,
+    warranty_start_date: formData.get('warranty_start_date') || null,
+    warranty_expiry_date: formData.get('warranty_expiry_date') || null
+  }).eq('id', id);
 
   if (error) return { error: error.message };
   revalidatePath('/', 'layout');

@@ -32,7 +32,7 @@ export default async function PartnerTechniciansPage({
   let query = supabase
     .from('profiles')
     .select(`
-      id, name, email, phone, address, role, status, created_at
+      id, name, phone, address, role, status, created_at
     `, { count: 'exact' })
     .eq('role', 'TECHNICIAN')
     .eq('org_id', profile.org_id);

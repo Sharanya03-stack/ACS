@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@variant dark (&:is(.dark *));
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -17,12 +17,9 @@
     --foreground: #1C211F;
   }
   
-  @media (prefers-color-scheme: dark) {
-    :root {
-      /* Maintaining light mode for this B2B enterprise theme as requested */
-      --background: #F5F3ED;
-      --foreground: #1C211F;
-    }
+  .dark {
+    --background: #151A18; /* Darker than primary #243B36 */
+    --foreground: #F5F3ED;
   }
 }
 

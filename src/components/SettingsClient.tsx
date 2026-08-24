@@ -6,7 +6,7 @@ import { User, Bell, Lock, Shield, Mail, Smartphone, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/utils/supabase/client';
 
-export default function SettingsClient() {
+export default function SettingsClient({ userData }: { userData?: { name?: string; email?: string; role?: string; organization?: string } }) {
   const [activeTab, setActiveTab] = useState('notifications');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -182,11 +182,30 @@ export default function SettingsClient() {
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="p-8 flex flex-col items-center justify-center text-center h-full pt-16"
+              className="p-8 flex flex-col h-full"
             >
-              <Shield className="h-16 w-16 text-gray-300 mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Enterprise Account Management</h2>
-              <p className="text-gray-500 max-w-md">Your account is managed by your organization's administrator. Contact ACS Support for role or capability changes.</p>
+              <h2 className="text-xl font-semibold mb-6 pb-4 border-b border-gray-100 flex items-center gap-2">
+                <User className="h-5 w-5 text-[#D6A84F]" />
+                Account Information
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-1">Full Name</p>
+                  <p className="text-base font-semibold text-gray-900">{userData?.name || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-1">Email Address</p>
+                  <p className="text-base font-semibold text-gray-900">{userData?.email || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-1">Role</p>
+                  <p className="text-base font-semibold text-gray-900">{userData?.role?.replace('_', ' ') || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-1">Organization</p>
+                  <p className="text-base font-semibold text-gray-900">{userData?.organization || 'N/A'}</p>
+                </div>
+              </div>
             </motion.div>
           )}
 
