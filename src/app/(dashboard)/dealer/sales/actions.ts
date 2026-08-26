@@ -63,6 +63,28 @@ export async function createSaleAction(formData: FormData) {
 
   if (!vin || vin.trim() === '') {
     vin = `VIN-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+  } else {
+    vin = vin.trim().toUpperCase();
+  }
+
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Before inserting, perform a server-side duplicate VIN check globally.
+  const { data: existingVehicle, error: existingErr } = await adminClient
+    .from('vehicles')
+    .select('id')
+    .eq('vin', vin)
+    .maybeSingle();
+
+  if (existingErr) {
+    return { error: 'An error occurred while verifying the VIN.' };
+  }
+
+  if (existingVehicle) {
+    return { error: 'A vehicle with this VIN already exists. Please check the VIN or use the existing vehicle.' };
   }
 
   // State array to track successful creations for potential rollback
@@ -157,11 +179,6 @@ export async function createSaleAction(formData: FormData) {
     let rollbackFailed = false;
 
     if (rollbackQueue.length > 0) {
-      const adminClient = createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-
       // Roll back in reverse order of insertion to respect foreign keys
       for (let i = rollbackQueue.length - 1; i >= 0; i--) {
         const item = rollbackQueue[i];
@@ -182,7 +199,12 @@ export async function createSaleAction(formData: FormData) {
       console.error(`[CRITICAL ALERT] Partial sale records exist. Manual database cleanup required for Dealer ${dealerId}.`);
     }
 
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    if (errorMessage.includes('vehicles_vin_key')) {
+      return { error: 'A vehicle with this VIN already exists. Please check the VIN or use the existing vehicle.' };
+    }
+
     // Return a generic, safe error to the client
-    return { error: 'Failed to create sale: ' + (err instanceof Error ? err.message : String(err)) };
+    return { error: 'Failed to create sale: ' + errorMessage };
   }
 }

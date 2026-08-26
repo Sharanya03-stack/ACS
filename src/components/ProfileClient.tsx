@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { updateProfileAction } from '@/app/(dashboard)/[role]/profile/actions';
+import { isValidPhone } from '@/utils/validation';
 
 export interface ProfileData {
   id: string;
@@ -45,12 +46,17 @@ export default function ProfileClient({ initialUser }: { initialUser: ProfileDat
   }, [initialUser]);
 
   const handleSave = async () => {
+    if (formData.phone && formData.phone.trim() !== '' && !isValidPhone(formData.phone)) {
+      toast.error('Invalid phone number format. Must be a 10-digit number starting with 6-9.');
+      return;
+    }
+
     setIsSaving(true);
     
     try {
       const result = await updateProfileAction({
         name: formData.name,
-        phone: formData.phone,
+        phone: formData.phone.trim(),
         address: formData.address
       });
       
@@ -205,6 +211,8 @@ export default function ProfileClient({ initialUser }: { initialUser: ProfileDat
                     name="phone"
                     value={formData.phone} 
                     onChange={handleChange}
+                    inputMode="numeric"
+                    maxLength={10}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#243B36] focus:ring-[#243B36] sm:text-sm h-10 border px-3" 
                   />
                 ) : (

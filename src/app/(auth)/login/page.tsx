@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { BatteryCharging, ShieldCheck } from "lucide-react";
+import { BatteryCharging, ShieldCheck, Mail, Smartphone, ArrowRight } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
 import Image from "next/image";
@@ -18,8 +18,18 @@ const EMAIL_MAP: Record<string, string> = {
 };
 
 export default function LoginPage() {
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
+  
+  // Email states
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
+  
+  // Phone states
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  
+  // Common states
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
@@ -30,19 +40,30 @@ export default function LoginPage() {
     if (selectedId && EMAIL_MAP[selectedId]) {
       setUserId(EMAIL_MAP[selectedId]);
       setPassword("password123"); 
+      setLoginMethod('email');
     } else {
       setUserId("");
       setPassword("");
     }
   };
+  
+  const routeUserByRole = async (userId: string) => {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
+    const role = profile?.role;
+    if (role === 'ACS_ADMIN') router.push("/admin/dashboard");
+    else if (role === 'OEM') router.push("/oem/dashboard");
+    else if (role === 'DEALER') router.push("/dealer/dashboard");
+    else if (role === 'PARTNER') router.push("/partner/dashboard");
+    else if (role === 'TECHNICIAN') router.push("/technician/dashboard");
+    else router.push("/");
+  };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsSubmitting(true);
 
     try {
-      // For backwards compatibility with the UI, if they type 'admin001', map it. Otherwise use the typed email.
       const emailToUse = EMAIL_MAP[userId] || userId;
 
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -50,25 +71,58 @@ export default function LoginPage() {
         password: password,
       });
 
-      if (signInError) {
-        setError(signInError.message);
-        setIsSubmitting(false);
-        return;
-      }
-
-      // We rely on middleware or AuthContext to route, but we can do an initial fetch here for smooth UX
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
-      
-      const role = profile?.role;
-      if (role === 'ACS_ADMIN') router.push("/admin/dashboard");
-      else if (role === 'OEM') router.push("/oem/dashboard");
-      else if (role === 'DEALER') router.push("/dealer/dashboard");
-      else if (role === 'PARTNER') router.push("/partner/dashboard");
-      else if (role === 'TECHNICIAN') router.push("/technician/dashboard");
-      else router.push("/");
+      if (signInError) throw signInError;
+      await routeUserByRole(data.user.id);
       
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      // Format phone number to ensure it has a '+' sign if missing but otherwise rely on user input
+      const formattedPhone = phone.startsWith('+') ? phone : `+${phone.replace(/\D/g, '')}`;
+      
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        phone: formattedPhone,
+      });
+
+      if (otpError) throw otpError;
+      
+      setShowOtpInput(true);
+      setIsSubmitting(false);
+    } catch (err: any) {
+      setError(err.message || "Failed to send OTP");
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      const formattedPhone = phone.startsWith('+') ? phone : `+${phone.replace(/\D/g, '')}`;
+      
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        phone: formattedPhone,
+        token: otp,
+        type: 'sms'
+      });
+
+      if (verifyError) throw verifyError;
+      if (data.user) {
+        await routeUserByRole(data.user.id);
+      }
+    } catch (err: any) {
+      setError(err.message || "Invalid OTP");
       setIsSubmitting(false);
     }
   };
@@ -172,80 +226,193 @@ export default function LoginPage() {
       >
         <div className="bg-white/90 backdrop-blur py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-white">
           
-          <div className="mb-6 p-4 bg-gray-50/80 border border-gray-100 rounded-xl">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-2">Supabase Auth Integrated</h3>
-            <p className="text-xs text-gray-600 mb-4">Select a role below to auto-fill the test email and password.</p>
-            <select 
-              className="w-full text-sm border-gray-200 rounded-lg shadow-sm focus:border-[#D6A84F] focus:ring-[#D6A84F] bg-white p-2.5 border outline-none transition-all"
-              onChange={handleDemoSelect}
-              defaultValue=""
-            >
-              <option value="" disabled>Auto-fill test credentials...</option>
-              <option value="admin001">ACS Admin (admin@acsenergy.com)</option>
-              <option value="oem001">OEM (oem@tata.com)</option>
-              <option value="dealer001">Dealer (dealer@tata.com)</option>
-              <option value="partner001">Installation Partner (partner@voltcharge.com)</option>
-              <option value="tech001">Technician (tech@voltcharge.com)</option>
-            </select>
-            <p className="text-[10px] text-gray-400 mt-2 text-center">Passwords are password123</p>
-          </div>
-
-          <form className="space-y-6" onSubmit={handleLogin}>
-            <div>
-              <label htmlFor="userId" className="block text-sm font-medium text-gray-700">
-                Email / User ID
-              </label>
-              <div className="mt-1">
-                <input
-                  id="userId"
-                  name="userId"
-                  type="text"
-                  required
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  className="block w-full appearance-none rounded-lg border border-gray-300 px-4 py-3 placeholder-gray-400 shadow-sm focus:border-[#243B36] focus:outline-none focus:ring-1 focus:ring-[#243B36] sm:text-sm transition-colors"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full appearance-none rounded-lg border border-gray-300 px-4 py-3 placeholder-gray-400 shadow-sm focus:border-[#243B36] focus:outline-none focus:ring-1 focus:ring-[#243B36] sm:text-sm transition-colors"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100"
-              >
-                {error}
-              </motion.div>
-            )}
-
-            <div>
+                    <div className="mb-6">
+            <div className="flex bg-gray-100 p-1 rounded-lg">
               <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-[#243B36] to-[#1a2b27] hover:from-[#1a2b27] hover:to-[#111c19] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#243B36] transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100"
+                type="button"
+                onClick={() => setLoginMethod('email')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${
+                  loginMethod === 'email' 
+                    ? 'bg-white text-[#243B36] shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
               >
-                {isSubmitting ? "Authenticating..." : "Sign in securely"}
+                <Mail className="h-4 w-4" /> Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginMethod('phone')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${
+                  loginMethod === 'phone' 
+                    ? 'bg-white text-[#243B36] shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Smartphone className="h-4 w-4" /> Phone OTP
               </button>
             </div>
-          </form>
+          </div>
+
+          {loginMethod === 'email' && (
+            <div className="mb-6 p-4 bg-gray-50/80 border border-gray-100 rounded-xl">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-2">Demo Access</h3>
+              <select 
+                className="w-full text-sm border-gray-200 rounded-lg shadow-sm focus:border-[#D6A84F] focus:ring-[#D6A84F] bg-white p-2.5 border outline-none transition-all"
+                onChange={handleDemoSelect}
+                defaultValue=""
+              >
+                <option value="" disabled>Auto-fill test credentials...</option>
+                <option value="admin001">ACS Admin (admin@acsenergy.com)</option>
+                <option value="oem001">OEM (oem@tata.com)</option>
+                <option value="dealer001">Dealer (dealer@tata.com)</option>
+                <option value="partner001">Installation Partner (partner@voltcharge.com)</option>
+                <option value="tech001">Technician (tech@voltcharge.com)</option>
+              </select>
+            </div>
+          )}
+
+          {loginMethod === 'email' ? (
+            <form className="space-y-6" onSubmit={handleEmailLogin}>
+              <div>
+                <label htmlFor="userId" className="block text-sm font-medium text-gray-700">
+                  Email / User ID
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="userId"
+                    name="userId"
+                    type="text"
+                    required
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    className="block w-full appearance-none rounded-lg border border-gray-300 px-4 py-3 placeholder-gray-400 shadow-sm focus:border-[#243B36] focus:outline-none focus:ring-1 focus:ring-[#243B36] sm:text-sm transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="block w-full appearance-none rounded-lg border border-gray-300 px-4 py-3 placeholder-gray-400 shadow-sm focus:border-[#243B36] focus:outline-none focus:ring-1 focus:ring-[#243B36] sm:text-sm transition-colors"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100"
+                >
+                  {error}
+                </motion.div>
+              )}
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-[#243B36] to-[#1a2b27] hover:from-[#1a2b27] hover:to-[#111c19] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#243B36] transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100"
+                >
+                  {isSubmitting ? "Authenticating..." : "Sign in securely"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form className="space-y-6" onSubmit={showOtpInput ? handleVerifyOtp : handleSendOtp}>
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                  Phone Number
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="+1234567890"
+                    required
+                    disabled={showOtpInput}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="block w-full appearance-none rounded-lg border border-gray-300 px-4 py-3 placeholder-gray-400 shadow-sm focus:border-[#243B36] focus:outline-none focus:ring-1 focus:ring-[#243B36] sm:text-sm transition-colors disabled:bg-gray-50 disabled:text-gray-500"
+                  />
+                </div>
+              </div>
+
+              {showOtpInput && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                >
+                  <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
+                    Verification Code (OTP)
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      id="otp"
+                      name="otp"
+                      type="text"
+                      required
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      className="block w-full appearance-none rounded-lg border border-gray-300 px-4 py-3 placeholder-gray-400 shadow-sm focus:border-[#243B36] focus:outline-none focus:ring-1 focus:ring-[#243B36] sm:text-sm transition-colors tracking-widest text-center text-lg font-mono"
+                      placeholder="••••••"
+                    />
+                  </div>
+                </motion.div>
+              )}
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100"
+                >
+                  {error}
+                </motion.div>
+              )}
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-[#243B36] to-[#1a2b27] hover:from-[#1a2b27] hover:to-[#111c19] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#243B36] transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100"
+                >
+                  {isSubmitting 
+                    ? "Processing..." 
+                    : showOtpInput 
+                      ? "Verify & Sign In" 
+                      : <>Send OTP <ArrowRight className="h-4 w-4" /></>}
+                </button>
+              </div>
+              
+              {showOtpInput && (
+                <div className="text-center mt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOtpInput(false);
+                      setOtp("");
+                      setError("");
+                    }}
+                    className="text-xs text-[#243B36] hover:underline font-medium"
+                  >
+                    Change phone number
+                  </button>
+                </div>
+              )}
+            </form>
+          )}
           
           <div className="mt-8 text-center border-t border-gray-100 pt-6">
             <p className="text-xs text-gray-500">Secure Enterprise Portal • v2.0</p>

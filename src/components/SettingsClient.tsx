@@ -6,15 +6,18 @@ import { User, Bell, Lock, Shield, Mail, Smartphone, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/utils/supabase/client';
 
-export default function SettingsClient({ userData }: { userData?: { name?: string; email?: string; role?: string; organization?: string } }) {
+export default function SettingsClient({ userData }: { userData?: { name?: string; email?: string; role?: string; organization?: string; notification_preferences?: any } }) {
   const [activeTab, setActiveTab] = useState('notifications');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Initial preferences from DB or default
+  const defaultPrefs = userData?.notification_preferences || { email: true, sms: true, system: false };
+
   // Notifications State
   const [notifications, setNotifications] = useState([
-    { id: 'email', title: "Email Notifications", desc: "Receive emails about new job assignments and status changes.", icon: Mail, on: true },
-    { id: 'sms', title: "SMS Alerts", desc: "Get text messages for critical alerts and OTP verifications.", icon: Smartphone, on: true },
-    { id: 'system', title: "System Broadcasts", desc: "Receive alerts regarding ACS Energy platform maintenance.", icon: Bell, on: false }
+    { id: 'email', title: "Email Notifications", desc: "Receive emails about new job assignments and status changes.", icon: Mail, on: defaultPrefs.email ?? true },
+    { id: 'sms', title: "SMS Alerts", desc: "Get text messages for critical alerts and OTP verifications.", icon: Smartphone, on: defaultPrefs.sms ?? true },
+    { id: 'system', title: "System Broadcasts", desc: "Receive alerts regarding ACS Energy platform maintenance.", icon: Bell, on: defaultPrefs.system ?? false }
   ]);
 
   // Security State
@@ -33,7 +36,36 @@ export default function SettingsClient({ userData }: { userData?: { name?: strin
 
   const handleSave = async () => {
     if (activeTab === 'notifications') {
-      toast.error('Notification preferences are not currently persisted.');
+      setIsSaving(true);
+      
+      const newPrefs = {
+        email: notifications.find(n => n.id === 'email')?.on ?? true,
+        sms: notifications.find(n => n.id === 'sms')?.on ?? true,
+        system: notifications.find(n => n.id === 'system')?.on ?? false
+      };
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Unauthorized');
+        setIsSaving(false);
+        return;
+      }
+
+      const { error } = await supabase.from('profiles').update({
+        notification_preferences: newPrefs
+      }).eq('id', user.id);
+
+      setIsSaving(false);
+
+      if (error) {
+        toast.error(error.message || 'Failed to save notification preferences');
+        return;
+      }
+
+      toast.success('Notification preferences saved successfully', {
+        style: { background: '#243B36', color: '#fff', fontWeight: '500' },
+        iconTheme: { primary: '#D6A84F', secondary: '#243B36' }
+      });
       return;
     }
 
@@ -68,7 +100,6 @@ export default function SettingsClient({ userData }: { userData?: { name?: strin
   const tabs = [
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Lock },
-    { id: 'account', label: 'Account', icon: Shield },
   ];
 
   return (
@@ -173,37 +204,6 @@ export default function SettingsClient({ userData }: { userData?: { name?: strin
                     onChange={(e) => setPasswords({...passwords, new: e.target.value})}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#243B36] focus:ring-[#243B36] sm:text-sm h-10 border px-3" 
                   />
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'account' && (
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="p-8 flex flex-col h-full"
-            >
-              <h2 className="text-xl font-semibold mb-6 pb-4 border-b border-gray-100 flex items-center gap-2">
-                <User className="h-5 w-5 text-[#D6A84F]" />
-                Account Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Full Name</p>
-                  <p className="text-base font-semibold text-gray-900">{userData?.name || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Email Address</p>
-                  <p className="text-base font-semibold text-gray-900">{userData?.email || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Role</p>
-                  <p className="text-base font-semibold text-gray-900">{userData?.role?.replace('_', ' ') || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Organization</p>
-                  <p className="text-base font-semibold text-gray-900">{userData?.organization || 'N/A'}</p>
                 </div>
               </div>
             </motion.div>

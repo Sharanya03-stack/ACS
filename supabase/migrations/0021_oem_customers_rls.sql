@@ -1,0 +1,1 @@
+CREATE POLICY "Customers OEM Insert" ON public.customers FOR INSERT WITH CHECK ( public.get_auth_role() = 'OEM' AND dealer_id IN ( SELECT id FROM public.organizations WHERE parent_org_id = public.get_auth_org_id() ) );

@@ -23,6 +23,24 @@ async function requireAdmin() {
   return user.id;
 }
 
+async function requireAdminOrOEM() {
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, org_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || (profile.role !== 'ACS_ADMIN' && profile.role !== 'OEM')) {
+    throw new Error('Forbidden: Only ACS Admin or OEM can perform this action');
+  }
+
+  return { userId: user.id, role: profile.role, org_id: profile.org_id };
+}
+
 function getAdminClient() {
   return createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,6 +99,10 @@ export async function updateOEM(id: string, formData: FormData) {
     const contactPhone = formData.get('contactPhone') as string;
     const address = formData.get('address') as string;
 
+    if (contactPhone && !isValidPhone(contactPhone)) {
+      return { error: 'Invalid contact phone number format' };
+    }
+
     if (!name || name.trim() === '') {
       return { error: 'OEM name is required' };
     }
@@ -134,14 +156,28 @@ export async function deactivateOrganization(id: string) {
 
 export async function createDealer(formData: FormData) {
   try {
-    await requireAdmin();
+    const { role, org_id } = await requireAdminOrOEM();
     const adminClient = getAdminClient();
 
     const name = formData.get('name') as string;
-    const parentOrgId = formData.get('parentOrgId') as string;
+    let parentOrgId = formData.get('parentOrgId') as string;
+    
+    if (role === 'OEM') {
+      if (!org_id) return { error: 'OEM organization ID is missing' };
+      parentOrgId = org_id;
+    }
+
     const contactEmail = formData.get('contactEmail') as string;
     const contactPhone = formData.get('contactPhone') as string;
     const address = formData.get('address') as string;
+
+    if (contactPhone && !isValidPhone(contactPhone)) {
+      return { error: 'Invalid contact phone number format' };
+    }
+
+    if (contactPhone && !isValidPhone(contactPhone)) {
+      return { error: 'Invalid contact phone number format' };
+    }
 
     if (!name || name.trim() === '') return { error: 'Dealer name is required' };
     if (!parentOrgId) return { error: 'Parent OEM is required' };
@@ -165,6 +201,7 @@ export async function createDealer(formData: FormData) {
     if (error) throw error;
     
     revalidatePath('/admin/dealerships');
+    revalidatePath('/oem/dealerships');
     return { success: true };
   } catch (err: any) {
     return { error: err.message || 'Failed to create Dealership' };
@@ -173,21 +210,35 @@ export async function createDealer(formData: FormData) {
 
 export async function updateDealer(id: string, formData: FormData) {
   try {
-    await requireAdmin();
+    const { role, org_id } = await requireAdminOrOEM();
     const adminClient = getAdminClient();
 
     const name = formData.get('name') as string;
-    const parentOrgId = formData.get('parentOrgId') as string;
+    let parentOrgId = formData.get('parentOrgId') as string;
+
+    if (role === 'OEM') {
+      if (!org_id) return { error: 'OEM organization ID is missing' };
+      parentOrgId = org_id;
+    }
+
     const contactEmail = formData.get('contactEmail') as string;
     const contactPhone = formData.get('contactPhone') as string;
     const address = formData.get('address') as string;
 
+    if (contactPhone && !isValidPhone(contactPhone)) {
+      return { error: 'Invalid contact phone number format' };
+    }
+
     if (!name || name.trim() === '') return { error: 'Dealer name is required' };
     if (!parentOrgId) return { error: 'Parent OEM is required' };
 
-    // Verify target is DEALER
-    const { data: existing } = await adminClient.from('organizations').select('type').eq('id', id).single();
+    // Verify target is DEALER and check OEM ownership
+    const { data: existing } = await adminClient.from('organizations').select('type, parent_org_id').eq('id', id).single();
     if (!existing || existing.type !== 'DEALER') return { error: 'Invalid organization target' };
+    
+    if (role === 'OEM' && existing.parent_org_id !== org_id) {
+       return { error: 'Forbidden: You cannot modify a dealership belonging to another OEM' };
+    }
 
     // Verify parent OEM
     const { data: oem } = await adminClient.from('organizations').select('type, status').eq('id', parentOrgId).single();
@@ -206,6 +257,7 @@ export async function updateDealer(id: string, formData: FormData) {
     if (error) throw error;
     
     revalidatePath('/admin/dealerships');
+    revalidatePath('/oem/dealerships');
     return { success: true };
   } catch (err: any) {
     return { error: err.message || 'Failed to update Dealership' };
@@ -225,6 +277,10 @@ export async function createPartner(formData: FormData) {
     const contactEmail = formData.get('contactEmail') as string;
     const contactPhone = formData.get('contactPhone') as string;
     const address = formData.get('address') as string;
+
+    if (contactPhone && !isValidPhone(contactPhone)) {
+      return { error: 'Invalid contact phone number format' };
+    }
 
     if (!name || name.trim() === '') return { error: 'Partner name is required' };
 
@@ -257,6 +313,10 @@ export async function updatePartner(id: string, formData: FormData) {
     const contactPhone = formData.get('contactPhone') as string;
     const address = formData.get('address') as string;
 
+    if (contactPhone && !isValidPhone(contactPhone)) {
+      return { error: 'Invalid contact phone number format' };
+    }
+
     if (!name || name.trim() === '') return { error: 'Partner name is required' };
 
     // Verify existing is PARTNER
@@ -278,3 +338,4 @@ export async function updatePartner(id: string, formData: FormData) {
     return { error: err.message || 'Failed to update Partner' };
   }
 }
+

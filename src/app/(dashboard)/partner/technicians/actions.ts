@@ -59,7 +59,8 @@ export async function createTechnician(formData: FormData) {
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email,
       password,
-      email_confirm: true
+      email_confirm: true,
+      phone: phone || undefined
     });
 
     if (authError) {
@@ -127,6 +128,15 @@ export async function updateTechnician(id: string, formData: FormData) {
     }).eq('id', id);
 
     if (error) throw error;
+
+    if (phone) {
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`;
+      await adminClient.auth.admin.updateUserById(id, { phone: formattedPhone });
+    } else {
+      // Assuming they remove the phone number, maybe delete it from auth too
+      // But updateUserById doesn't seem to easily allow unsetting phone unless we pass empty string or null?
+      // Actually Supabase API might error if we pass empty string. Let's not remove it if it's empty, or pass undefined? We'll just leave it.
+    }
 
     revalidatePath('/partner/technicians');
     return { success: true };

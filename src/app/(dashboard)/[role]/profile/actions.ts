@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { isValidPhone } from '@/utils/validation';
 
 export async function refreshProfile() {
   revalidatePath('/', 'layout');
@@ -14,6 +15,12 @@ export async function updateProfileAction(formData: { name: string; phone: strin
   
   if (sessionError || !session?.user) {
     return { error: 'Not authenticated' };
+  }
+
+  if (formData.phone && formData.phone.trim() !== '') {
+    if (!isValidPhone(formData.phone)) {
+      return { error: 'Invalid phone number format. Must be a 10-digit number starting with 6-9.' };
+    }
   }
 
   // Admin Client to diagnose
@@ -56,6 +63,16 @@ export async function updateProfileAction(formData: { name: string; phone: strin
     return { 
       error: 'UPDATE AFFECTED 0 ROWS. Diagnosis: Row EXISTS in DB, auth.uid() MATCHES (' + adminProfile.id + '), but RLS evaluated to FALSE. RLS policy is missing or incorrectly defined.'
     };
+  }
+
+  // Sync phone number to auth.users using adminClient
+  if (formData.phone) {
+    const formattedPhone = formData.phone.startsWith('+') ? formData.phone : `+91${formData.phone.replace(/\D/g, '')}`;
+    const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(authUid, { phone: formattedPhone });
+    if (authUpdateError) {
+      console.error('Failed to sync phone to auth.users:', authUpdateError);
+      // We don't fail the whole action, but we should log it
+    }
   }
 
   revalidatePath('/', 'layout');

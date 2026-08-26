@@ -16,7 +16,8 @@ export default async function SettingsPage() {
     email: user.email,
     name: profile?.name,
     role: profile?.role,
-    organization: profile?.organizations?.name || 'N/A'
+    organization: profile?.organizations?.name || 'N/A',
+    notification_preferences: profile?.notification_preferences
   };
 
   return <SettingsClient userData={userData} />;

@@ -38,15 +38,15 @@ function Modal({ isOpen, onClose, title, children }: ModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden relative z-10 border dark:border-gray-700"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden relative z-10 border dark:border-gray-700 flex flex-col max-h-[90vh]"
           >
-            <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
+            <div className="flex justify-between items-center p-4 border-b dark:border-gray-700 shrink-0 bg-white dark:bg-gray-800 z-20">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
-              <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-4">
+            <div className="p-4 overflow-y-auto">
               {children}
             </div>
           </motion.div>
@@ -67,21 +67,27 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [options, setOptions] = useState<{dealers: any[], customers: any[], installations: any[], vehicles: any[]}>({ dealers: [], customers: [], installations: [], vehicles: [] });
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [selectedDealerId, setSelectedDealerId] = useState<string>('');
 
   React.useEffect(() => {
     if (isOpen && ['customers', 'vehicles', 'chargers'].includes(page)) {
       const fetchOptions = async () => {
         const supabase = createClient();
-        const [dRes, cRes, vRes] = await Promise.all([
+        const [dRes, cRes, vRes, chargersRes] = await Promise.all([
           supabase.from('organizations').select('id, name').eq('type', 'DEALER').eq('status', 'ACTIVE'),
-          supabase.from('customers').select('id, name, phone'),
-          supabase.from('vehicles').select('id, vin, model')
+          supabase.from('customers').select('id, name, phone, dealer_id'),
+          supabase.from('vehicles').select('id, vin, model, customer_id'),
+          page === 'chargers' ? supabase.from('chargers').select('vehicle_id') : Promise.resolve({ data: [] })
         ]);
+        
+        const vehiclesWithChargers = new Set((chargersRes.data || []).map((c: any) => c.vehicle_id));
+        
         setOptions({
           dealers: dRes.data || [],
           customers: cRes.data || [],
           installations: [],
-          vehicles: vRes.data || []
+          vehicles: (vRes.data || []).filter((v: any) => !vehiclesWithChargers.has(v.id))
         });
       };
       fetchOptions();
@@ -110,6 +116,8 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
     } else if (result.success) {
       toast.success('Created successfully!');
       setIsOpen(false);
+      setSelectedCustomerId('');
+      setSelectedDealerId('');
     }
   };
 
@@ -119,6 +127,21 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
 
   const entityName = page.charAt(0).toUpperCase() + page.slice(1, -1); // e.g. "Oem", "Dealership", "Partner", "Technician"
   
+  const handleCustomerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const custId = e.target.value;
+    setSelectedCustomerId(custId);
+    if (custId) {
+      const cust = options.customers.find(c => c.id === custId);
+      if (cust && cust.dealer_id) {
+        setSelectedDealerId(cust.dealer_id);
+      }
+    }
+  };
+
+  const filteredCustomers = selectedDealerId 
+    ? options.customers.filter(c => c.dealer_id === selectedDealerId)
+    : options.customers;
+
   return (
     <>
       <button 
@@ -129,7 +152,7 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
         Add {entityName}
       </button>
 
-      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title={`Add ${entityName}`}>
+      <Modal isOpen={isOpen} onClose={() => { setIsOpen(false); setSelectedCustomerId(''); setSelectedDealerId(''); }} title={`Add ${entityName}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Common Fields for Orgs/Techs */}
           {!['customers', 'vehicles', 'chargers'].includes(page) && (
@@ -203,7 +226,7 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Dealer (if Admin/OEM)</label>
-                <select name="dealerId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                <select name="dealerId" value={selectedDealerId} onChange={e => setSelectedDealerId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
                   <option value="">Select Dealer...</option>
                   {options.dealers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
@@ -211,6 +234,18 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
               <div>
                 <label className="block text-sm font-medium text-gray-700">City</label>
                 <input type="text" name="city" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Address *</label>
+                <input required type="text" name="address" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">State *</label>
+                <input required type="text" name="state" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Pincode *</label>
+                <input required type="text" name="pincode" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
             </>
           )}
@@ -228,14 +263,14 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Customer</label>
-                <select name="customerId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                <select name="customerId" value={selectedCustomerId} onChange={handleCustomerChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
                   <option value="">Select Customer...</option>
-                  {options.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {filteredCustomers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Dealer (if Admin/OEM)</label>
-                <select name="dealerId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                <select name="dealerId" value={selectedDealerId} onChange={e => setSelectedDealerId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
                   <option value="">Select Dealer...</option>
                   {options.dealers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
@@ -264,16 +299,21 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Customer *</label>
-                <select required name="customerId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                <select required name="customerId" value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
                   <option value="">Select Customer...</option>
                   {options.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Vehicle *</label>
-                <select required name="vehicleId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                <select required name="vehicleId" onChange={(e) => {
+                  const selectedVehicle = options.vehicles.find(v => v.id === e.target.value);
+                  if (selectedVehicle && selectedVehicle.customer_id) setSelectedCustomerId(selectedVehicle.customer_id);
+                }} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
                   <option value="">Select Vehicle...</option>
-                  {options.vehicles.map(v => <option key={v.id} value={v.id}>{v.vin} - {v.model}</option>)}
+                  {options.vehicles
+                    .filter(v => !selectedCustomerId || v.customer_id === selectedCustomerId)
+                    .map(v => <option key={v.id} value={v.id}>{v.vin} - {v.model}</option>)}
                 </select>
               </div>
               <div className="pt-2">
@@ -294,8 +334,8 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
             </>
           )}
 
-          <div className="pt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setIsOpen(false)} className="px-4 py-2 border rounded-md text-gray-600 hover:bg-gray-50">Cancel</button>
+          <div className="sticky -bottom-4 -mx-4 -mb-4 bg-white dark:bg-gray-800 p-4 border-t dark:border-gray-700 flex justify-end gap-2 z-10">
+            <button type="button" onClick={() => setIsOpen(false)} className="px-4 py-2 border rounded-md text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
             <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-[#D6A84F] text-[#1C211F] rounded-md hover:bg-[#c59844] disabled:opacity-50 font-medium">
               {isSubmitting ? 'Saving...' : 'Save'}
             </button>
@@ -474,8 +514,8 @@ export function RowActions({ item, page, oems = [] }: { item: any, page: string,
             </>
           )}
 
-          <div className="pt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setIsEditOpen(false)} className="px-4 py-2 border rounded-md text-gray-600 hover:bg-gray-50">Cancel</button>
+          <div className="sticky -bottom-4 -mx-4 -mb-4 bg-white dark:bg-gray-800 p-4 border-t dark:border-gray-700 flex justify-end gap-2 z-10">
+            <button type="button" onClick={() => setIsEditOpen(false)} className="px-4 py-2 border rounded-md text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
             <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-[#D6A84F] text-[#1C211F] rounded-md hover:bg-[#c59844] disabled:opacity-50 font-medium">
               {isSubmitting ? 'Saving...' : 'Save'}
             </button>
