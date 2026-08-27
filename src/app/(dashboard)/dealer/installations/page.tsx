@@ -7,6 +7,8 @@ import { getInstallations } from '@/utils/queries';
 import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
 
+import { AddOrderButton } from '@/components/installations/AddOrderButton';
+
 export default async function DealerInstallationsPage({
   searchParams
 }: {
@@ -54,12 +56,15 @@ export default async function DealerInstallationsPage({
           <h1 className="text-2xl font-bold text-gray-900">Your Installations</h1>
           <p className="mt-1 text-sm text-gray-500">Track the status of EV charger installations for your customers.</p>
         </div>
-        <Link 
-          href="/dealer/sales" 
-          className="inline-flex justify-center rounded-md border border-transparent bg-acs-primary py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-acs-primary/90"
-        >
-          + New Sale & Request
-        </Link>
+        <div className="flex gap-4">
+          <Link 
+            href="/dealer/sales" 
+            className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            New Customer/Sale
+          </Link>
+          <AddOrderButton />
+        </div>
       </div>
 
       <InstallationFilters 

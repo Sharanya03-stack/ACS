@@ -7,6 +7,7 @@ import { updateCustomer } from '@/app/actions/entityActions';
 import { X, User, Car, Zap, Wrench, Clock, FileText, CheckCircle2, MapPin, Loader2, Edit2, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { WarrantyEditor } from './WarrantyEditor';
+import { DocumentManager } from '../installations/DocumentManager';
 import { formatPowerRating } from '@/utils/formatters';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -403,6 +404,19 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
                           )}
                         </div>
                         
+                        {inst.tracking_token && (
+                          <div className="col-span-2 sm:col-span-2">
+                            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Tracking Token</p>
+                            <p className="text-sm text-gray-900 font-mono bg-gray-50 inline-block px-2 py-0.5 rounded border border-gray-100 break-all">{inst.tracking_token}</p>
+                          </div>
+                        )}
+                        {inst.remarks && (
+                          <div className="col-span-2 sm:col-span-2">
+                            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Order Remarks</p>
+                            <p className="text-sm text-gray-900">{inst.remarks}</p>
+                          </div>
+                        )}
+                        
                         {inst.rejection_reason && (
                           <div className="col-span-2 md:col-span-4 p-4 bg-red-50/80 rounded-lg border border-red-100 mt-2">
                             <p className="text-[11px] text-red-800 uppercase tracking-wider font-semibold mb-1">Revisit Reason</p>
@@ -432,6 +446,8 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
                           </div>
                         )}
                       </div>
+                      
+                      <DocumentManager installationId={inst.id} canUpload={canEdit || data?.profile?.role === 'PARTNER'} />
                     </motion.div>
                     
                     <motion.div variants={itemVariants} className="bg-white p-6 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100">

@@ -11,6 +11,7 @@ import { BatteryCharging, Filter, ChevronLeft, ChevronRight, X, User } from 'luc
 import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DocumentManager } from '@/components/installations/DocumentManager';
 
 interface Props {
   initialInstallations: any[];
@@ -20,6 +21,8 @@ interface Props {
   partners: any[];
   technicians: any[];
 }
+
+import { AddOrderButton } from '@/components/installations/AddOrderButton';
 
 export function AdminInstallationsClient({ initialInstallations, totalCount, oems, dealers, partners, technicians }: Props) {
   const router = useRouter();
@@ -203,9 +206,14 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
           <div className="absolute inset-0 bg-gradient-to-r from-white via-white/95 to-transparent"></div>
         </div>
         
-        <div className="relative z-10 p-8">
-          <h1 className="text-2xl font-bold text-gray-900">Installation Management</h1>
-          <p className="mt-2 text-sm text-gray-600 max-w-xl">Master view of all EV charger installations across the network. Review, dispatch, and verify installations to ensure quality and compliance.</p>
+        <div className="relative z-10 p-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Installation Management</h1>
+            <p className="mt-2 text-sm text-gray-600 max-w-xl">Master view of all EV charger installations across the network. Review, dispatch, and verify installations to ensure quality and compliance.</p>
+          </div>
+          <div>
+            <AddOrderButton />
+          </div>
         </div>
       </div>
 
@@ -408,6 +416,18 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                           <p className="text-sm text-gray-500 pl-10">{selectedInst.technicians.address}</p>
                         )}
                       </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500">Order Details</h3>
+                        <p className="mt-1 text-xs text-gray-500">Tracking Token:</p>
+                        <p className="text-sm text-gray-900 font-mono break-all">{selectedInst.tracking_token || 'N/A'}</p>
+                        <p className="mt-2 text-xs text-gray-500">Remarks:</p>
+                        <p className="text-sm text-gray-900">{selectedInst.remarks || 'None'}</p>
+                      </div>
+                    </div>
+
+                    {/* Documents */}
+                    <div className="mt-6 border-t pt-6">
+                      <DocumentManager installationId={selectedInst.id} canUpload={true} />
                     </div>
 
                     {/* Timeline Events */}
