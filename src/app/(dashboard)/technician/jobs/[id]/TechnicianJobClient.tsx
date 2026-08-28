@@ -199,14 +199,7 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
       <Link href="/technician/dashboard" className="text-[#243B36] hover:text-[#D6A84F] transition-colors text-sm font-medium mb-4 inline-block">&larr; Back to Jobs</Link>
       
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6 relative">
-        <div className="h-32 relative">
-          <Image 
-            src="/images/tech-bg.jpg"
-            alt="Installation Details"
-            fill
-            className="object-cover opacity-80"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/80"></div>
+        <div className="h-32 relative bg-[#243B36]">
           <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
             <div>
               <p className="text-white/80 text-xs uppercase tracking-wider font-semibold mb-1">Installation Job</p>

@@ -11,7 +11,6 @@ import { BatteryCharging, Filter, ChevronLeft, ChevronRight, X, User } from 'luc
 import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DocumentManager } from '@/components/installations/DocumentManager';
 
 interface Props {
   initialInstallations: any[];
@@ -196,16 +195,6 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
       
       {/* Subtle Visual Header */}
       <div className="mb-8 relative rounded-2xl overflow-hidden shadow-sm border border-gray-200/50 bg-white">
-        <div className="absolute inset-0 z-0">
-          <Image 
-            src="/images/tech-bg.jpg"
-            alt="Installation Management"
-            fill
-            className="object-cover opacity-15"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/95 to-transparent"></div>
-        </div>
-        
         <div className="relative z-10 p-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Installation Management</h1>
@@ -425,10 +414,6 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                       </div>
                     </div>
 
-                    {/* Documents */}
-                    <div className="mt-6 border-t pt-6">
-                      <DocumentManager installationId={selectedInst.id} canUpload={true} />
-                    </div>
 
                     {/* Timeline Events */}
                     <div className="mt-8 border-t pt-6">

@@ -7,7 +7,6 @@ import { updateCustomer } from '@/app/actions/entityActions';
 import { X, User, Car, Zap, Wrench, Clock, FileText, CheckCircle2, MapPin, Loader2, Edit2, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { WarrantyEditor } from './WarrantyEditor';
-import { DocumentManager } from '../installations/DocumentManager';
 import { formatPowerRating } from '@/utils/formatters';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -446,8 +445,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
                           </div>
                         )}
                       </div>
-                      
-                      <DocumentManager installationId={inst.id} canUpload={canEdit || data?.profile?.role === 'PARTNER'} />
+
                     </motion.div>
                     
                     <motion.div variants={itemVariants} className="bg-white p-6 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100">

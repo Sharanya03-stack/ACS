@@ -5,6 +5,7 @@ import { getInstallations } from '@/utils/queries';
 import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import Link from 'next/link';
+import { AddOrderButton } from '@/components/installations/AddOrderButton';
 
 export default async function OemDashboard({
   searchParams
@@ -58,9 +59,12 @@ export default async function OemDashboard({
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">OEM Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">Track EV sales and charger installation performance for your brand.</p>
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">OEM Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-500">Track EV sales and charger installation performance for your brand.</p>
+        </div>
+        <AddOrderButton />
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">

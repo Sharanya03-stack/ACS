@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { BatteryCharging } from 'lucide-react';
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
 import { InteractiveMetricCards } from '@/components/admin/InteractiveMetricCards';
+import { AddOrderButton } from '@/components/installations/AddOrderButton';
 import Link from 'next/link';
 
 export default async function AdminDashboard() {
@@ -44,9 +45,12 @@ export default async function AdminDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">ACS Energy Operations</h1>
-        <p className="mt-1 text-sm text-gray-500">Master Overview of all EV Charger Installations.</p>
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">ACS Energy Operations</h1>
+          <p className="mt-1 text-sm text-gray-500">Master Overview of all EV Charger Installations.</p>
+        </div>
+        <AddOrderButton />
       </div>
 
       <InteractiveMetricCards 

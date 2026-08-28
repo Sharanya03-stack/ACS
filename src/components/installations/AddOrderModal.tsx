@@ -36,11 +36,11 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
 
     // Fetch chargers without an installation
     const { data, error } = await supabase.from('chargers').select(`
-      id, serial_number, model,
+      id, serial_number, model, power_rating,
       customers ( name ),
       vehicles ( vin, model ),
       installations ( id )
-    `);
+    `).or('power_rating.eq.3.3,power_rating.eq.3.3kW');
 
     if (data) {
        // Filter out chargers that already have an installation
@@ -95,7 +95,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                     <option value="">-- Select a Charger --</option>
                     {chargers.map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.model} (SN: {c.serial_number}) - {c.customers?.name}
+                        {c.model} [{c.power_rating}] (SN: {c.serial_number}) - {c.customers?.name}
                       </option>
                     ))}
                   </select>

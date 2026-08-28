@@ -66,21 +66,15 @@ export async function createInstallationOrder(formData: FormData) {
   const dealer_id = vehicle?.dealer_id;
   let status = 'NEW';
 
+  if (profile.role === 'PARTNER' || profile.role === 'TECHNICIAN') {
+    return { success: false, error: 'Unauthorized: Partners and Technicians cannot create installation orders' };
+  }
+
   if (profile.role === 'OEM') {
     technician_id = null; // OEMs don't assign techs directly usually, but they can assign partners
   } else if (profile.role === 'DEALER') {
     partner_id = null; // Dealers don't assign partners, OEM/Admin does
     technician_id = null;
-  } else if (profile.role === 'PARTNER') {
-    // Partner creating an order? They must auto-assign themselves
-    partner_id = profile.org_id;
-    status = 'PARTNER_ASSIGNED';
-  } else if (profile.role === 'TECHNICIAN') {
-    // Tech creating an order? Auto-assign themselves and their partner
-    const { data: org } = await supabase.from('organizations').select('id').eq('id', profile.org_id).single();
-    partner_id = org?.id || null;
-    technician_id = user.id;
-    status = 'TECHNICIAN_ASSIGNED';
   }
 
   if (partner_id && status === 'NEW') status = 'PARTNER_ASSIGNED';

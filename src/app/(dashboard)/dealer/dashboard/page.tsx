@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { AddOrderButton } from '@/components/installations/AddOrderButton';
 
 export default async function DealerDashboard() {
   const supabase = await createClient();
@@ -32,12 +33,15 @@ export default async function DealerDashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Dealer Dashboard</h1>
           <p className="mt-1 text-sm text-gray-500">Welcome back. Here's an overview of your EV sales and charger installations.</p>
         </div>
-        <Link 
-          href="/dealer/sales" 
-          className="inline-flex justify-center rounded-md border border-transparent bg-acs-primary py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-acs-primary/90"
-        >
-          + New Vehicle Sale
-        </Link>
+        <div className="flex gap-3">
+          <Link 
+            href="/dealer/sales" 
+            className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            + New Vehicle Sale
+          </Link>
+          <AddOrderButton />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
