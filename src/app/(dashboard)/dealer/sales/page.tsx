@@ -26,13 +26,12 @@ export default function DealerSalesPage() {
     if (result.error) {
       setErrorMsg(result.error);
     } else {
-      setSuccessMsg(`Installation request ${result.installationId} created successfully!`);
+      setSuccessMsg(`Vehicle sale recorded successfully!`);
       // Reset form natively
       (e.target as HTMLFormElement).reset();
 
       setTimeout(() => {
         setSuccessMsg("");
-        router.push('/dealer/installations');
       }, 2000);
     }
   };
@@ -139,20 +138,7 @@ export default function DealerSalesPage() {
           </div>
         </div>
 
-        {/* Installation Request Details */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 border-b pb-2 mb-4">Installation Request Details</h3>
-          <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Installation Type</label>
-              <select required name="installationCategory" defaultValue="" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-acs-primary focus:ring-acs-primary sm:text-sm p-2 border bg-white">
-                <option value="" disabled>Select installation type</option>
-                <option value="INSTALLATION_ONLY">Installation Only</option>
-                <option value="INSTALLATION_AND_EARTHING">Installation + Earthing</option>
-              </select>
-            </div>
-          </div>
-        </div>
+
 
         <div className="pt-4 border-t flex justify-end">
           <button

@@ -78,7 +78,8 @@ export default async function TechnicianDashboard({
                       <span className="text-gray-400 font-bold">Unknown Customer</span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{customer?.address}, {customer?.city}</p>
+                  <p className="text-sm text-gray-600 mb-1">{customer?.address}, {customer?.city}</p>
+                  <p className="text-xs font-mono text-gray-500 mb-2">Charger SN: {job.chargers?.serial_number || 'N/A'}</p>
                   <p className="text-xs text-gray-500 mb-4">Scheduled: {job.scheduled_date || 'Not set'}</p>
                   
                   <Link 

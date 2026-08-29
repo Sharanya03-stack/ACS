@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { formatPowerRating } from '@/utils/formatters';
 import Image from 'next/image';
 import { InstallationNotes } from './InstallationNotes';
+import { EvidenceManager } from '@/components/installations/EvidenceManager';
 
 interface ReviewDrawerProps {
   installationId: string | null;
@@ -310,27 +311,12 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
                 )}
 
                 {/* Photos */}
-                {photos.length > 0 && (
-                  <div className="border-t pt-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Evidence Photos</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      {photos.map((photo) => (
-                        <div key={photo.id} className="border rounded-md overflow-hidden bg-gray-50 flex flex-col">
-                          <div className="p-2 text-xs font-semibold bg-gray-100 border-b text-center capitalize">
-                            {photo.category.replace(/_/g, ' ')}
-                          </div>
-                          <div className="relative aspect-video">
-                            {photo.url ? (
-                              <Image src={photo.url} alt={photo.category} fill className="object-contain" unoptimized />
-                            ) : (
-                              <div className="flex items-center justify-center h-full text-xs text-gray-500">Image unavilable</div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <EvidenceManager 
+                  installationId={details.id}
+                  category={details.category}
+                  existingPhotos={photos}
+                  onUploadSuccess={loadDetails}
+                />
 
                 {/* Installation Notes */}
                 <InstallationNotes installationId={details.id} />

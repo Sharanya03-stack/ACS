@@ -51,11 +51,7 @@ export async function createSaleAction(formData: FormData) {
   let vin = formData.get('vin') as string;
   const chargerModel = formData.get('chargerModel') as string;
   const chargerPower = formData.get('chargerPower') as string;
-  const installationCategory = formData.get('installationCategory') as string;
 
-  if (installationCategory !== 'INSTALLATION_ONLY' && installationCategory !== 'INSTALLATION_AND_EARTHING') {
-    return { error: 'Invalid Installation Type selected' };
-  }
 
   if (!isValidPhone(customerPhone)) {
     return { error: 'Invalid phone number format.' };
@@ -151,27 +147,9 @@ export async function createSaleAction(formData: FormData) {
     const chargerId = chrData.id;
     rollbackQueue.push({ table: 'chargers', id: chargerId });
 
-    // 6. Create Installation
-    const { data: instData, error: instErr } = await supabase
-      .from('installations')
-      .insert({
-        status: 'NEW',
-        category: installationCategory,
-        customer_id: customerId,
-        vehicle_id: vehicleId,
-        charger_id: chargerId,
-        dealer_id: dealerId,
-        oem_id: oemId
-      })
-      .select('id')
-      .single();
-
-    if (instErr || !instData) throw new Error(`Installation creation failed: ${instErr?.message}`);
-    
-    createdInstallationId = instData.id;
     success = true;
     
-    return { success: true, installationId: createdInstallationId };
+    return { success: true };
 
   } catch (err: any) {
     // 7. COMPENSATING TRANSACTION: ROLLBACK ALL

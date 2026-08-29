@@ -38,7 +38,7 @@ const BASE_PHOTO_CATEGORIES = [
 
 const EARTHING_PHOTO_CATEGORY = 'Earthing';
 
-export default function TechnicianJobClient({ job, existingChecklists, existingPhotos }: { job: any, existingChecklists: any[], existingPhotos: any[] }) {
+export default function TechnicianJobClient({ job, existingChecklists, existingPhotos, events = [] }: { job: any, existingChecklists: any[], existingPhotos: any[], events?: any[] }) {
   const router = useRouter();
   const supabase = createClient();
   
@@ -114,6 +114,21 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
       toast.error(res.error);
     } else {
       toast.success("Job started!");
+    }
+  };
+
+  const getTimelineLabel = (event: any) => {
+    switch (event.action) {
+      case 'CREATED': return 'Order Placed';
+      case 'TECHNICIAN_ASSIGNED': return 'Engineer Assigned';
+      case 'STATUS_CHANGED': 
+        const status = event.new_value?.status;
+        if (status === 'IN_PROGRESS') return 'Engineer En Route';
+        if (status === 'UNDER_VERIFICATION') return 'Installed';
+        if (status === 'VERIFIED') return 'Installed';
+        if (status === 'COMPLETED') return 'Closed';
+        return null; // Hide other status changes
+      default: return null;
     }
   };
 
@@ -218,6 +233,47 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
             <span className="font-semibold text-gray-700">Vehicle:</span> {vehicle?.model} (VIN: {vehicle?.vin})
           </div>
         </div>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Installation Timeline</h2>
+        {events && events.length > 0 ? (
+          <div className="flow-root">
+            <ul className="-mb-8">
+              {events
+                .filter(e => getTimelineLabel(e) !== null) // Only show mapped events
+                .map((event, eventIdx, filteredEvents) => (
+                <li key={event.id}>
+                  <div className="relative pb-8">
+                    {eventIdx !== filteredEvents.length - 1 ? (
+                      <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                    ) : null}
+                    <div className="relative flex space-x-3">
+                      <div>
+                        <span className="h-8 w-8 rounded-full bg-acs-primary/10 flex items-center justify-center ring-8 ring-white">
+                          <svg className="w-4 h-4 text-acs-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1 flex justify-between space-x-4 pt-1.5">
+                        <div>
+                          <p className="text-sm text-gray-900 font-medium">{getTimelineLabel(event)}</p>
+                        </div>
+                        <div className="text-right text-xs text-gray-500 whitespace-nowrap">
+                          <p>{new Date(event.created_at).toLocaleDateString()}</p>
+                          <p>{new Date(event.created_at).toLocaleTimeString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">No events recorded yet.</p>
+        )}
       </motion.div>
 
       {!isFinished && !isStarted && (

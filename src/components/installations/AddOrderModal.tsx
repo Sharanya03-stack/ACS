@@ -88,7 +88,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Charger</label>
                 {chargers.length === 0 ? (
                   <div className="text-sm text-red-600 bg-red-50 p-3 rounded">
-                    No available chargers found. Please create a charger/sale first.
+                    No available 3.3 kW chargers found. Create a new 3.3 kW charger through the Vehicle Sale flow first.
                   </div>
                 ) : (
                   <select name="charger_id" required className="w-full border rounded-md p-2 text-sm focus:ring-[#243B36] focus:border-[#243B36]">

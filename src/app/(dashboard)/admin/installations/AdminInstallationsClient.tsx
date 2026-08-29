@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { Installation, Customer } from '@/lib/types';
 import { reviewInstallation } from '@/app/actions/reviewInstallation';
 import Image from 'next/image';
+import { EvidenceManager } from '@/components/installations/EvidenceManager';
 import { BatteryCharging, Filter, ChevronLeft, ChevronRight, X, User } from 'lucide-react';
 import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
@@ -226,6 +227,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Installation ID</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dealer</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Charger</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Partner</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th scope="col" className="relative px-6 py-3"><span className="sr-only">View</span></th>
@@ -245,6 +247,10 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                       <div className="text-sm text-gray-500">{c?.city}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{d?.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{inst.chargers?.serial_number || 'N/A'}</div>
+                      <div className="text-sm text-gray-500">{inst.chargers?.model}</div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p?.name || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(inst.status)}`}>
@@ -489,27 +495,14 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                     {/* Photos */}
                     {isLoadingDetails ? (
                       <div className="mt-8 border-t pt-6 text-center text-gray-500">Loading photos...</div>
-                    ) : photos.length > 0 ? (
-                      <div className="mt-8 border-t pt-6">
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Evidence Photos</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          {photos.map((photo) => (
-                            <div key={photo.id} className="border rounded-md overflow-hidden bg-gray-50 flex flex-col">
-                              <div className="p-2 text-xs font-semibold bg-gray-100 border-b text-center capitalize">
-                                {photo.category.replace(/_/g, ' ')}
-                              </div>
-                              <div className="relative aspect-video">
-                                {photo.url ? (
-                                  <Image src={photo.url} alt={photo.category} fill className="object-cover" unoptimized />
-                                ) : (
-                                  <div className="flex items-center justify-center h-full text-xs text-gray-500">Image unavailable</div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
+                    ) : (
+                      <EvidenceManager 
+                        installationId={selectedInst.id}
+                        category={selectedInst.category}
+                        existingPhotos={photos}
+                        onUploadSuccess={() => loadDetails(selectedInst.id)}
+                      />
+                    )}
 
                     {selectedInst.rejection_reason && (
                        <div className="mt-8 border-t pt-6">

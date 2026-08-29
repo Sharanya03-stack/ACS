@@ -51,11 +51,20 @@ export default async function TechnicianJobPage(props: { params: Promise<{ id: s
     .select('*')
     .eq('installation_id', id);
 
+  // Fetch events for timeline
+  const { data: events } = await supabase
+    .from('audit_logs')
+    .select('*')
+    .eq('entity_type', 'INSTALLATION')
+    .eq('entity_id', id)
+    .order('created_at', { ascending: true });
+
   return (
     <TechnicianJobClient 
       job={job}
       existingChecklists={checklists || []}
       existingPhotos={photos || []}
+      events={events || []}
     />
   );
 }

@@ -122,13 +122,14 @@ export default async function OemDashboard({
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Installation ID</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dealer</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Charger</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {(!recentInstallations || recentInstallations.length === 0) ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
                     No records found.
                   </td>
                 </tr>
@@ -142,6 +143,10 @@ export default async function OemDashboard({
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vehicleModel}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dealerName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{inst.chargers?.serial_number || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">{inst.chargers?.model}</div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
                           {inst.status}
