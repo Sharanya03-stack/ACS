@@ -27,7 +27,7 @@ export default async function TechnicianJobPage(props: { params: Promise<{ id: s
   const { data: job, error } = await supabase
     .from('installations')
     .select(`
-      id, status, scheduled_date, rejection_reason,
+      id, status, scheduled_date, rejection_reason, category,
       customers(name, city, address, phone, pincode),
       vehicles(model, vin)
     `)

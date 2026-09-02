@@ -139,7 +139,7 @@ export default async function OemDashboard({
                   const dealerName = inst.dealers?.name || 'Unknown';
     
                   return (
-                    <tr key={inst.id} className="hover:bg-gray-50">
+                    <tr key={inst.id} className="acs-table-row">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vehicleModel}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dealerName}</td>

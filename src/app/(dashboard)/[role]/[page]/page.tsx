@@ -171,7 +171,7 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
                 </tr>
               ) : (
                 data.map((item, i) => (
-                  <tr key={item.id || i} className="hover:bg-gray-50">
+                  <tr key={item.id || i} className="acs-table-row">
                     {columns.map(col => (
                       <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {col.key === 'status' ? (

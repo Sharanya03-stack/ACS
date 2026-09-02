@@ -54,22 +54,20 @@ export async function submitInstallation(installationId: string) {
     }
 
     // 4. Verify required photos exist
-    const BASE_PHOTO_CATEGORIES = [
-      'Before Installation',
-      'Electrical Panel',
-      'MCB',
-      'Charger Mounting',
-      'Charger Serial Number',
-      'Wiring',
-      'Final Installed Charger',
-      'Charger Powered On',
-      'Charging Test'
-    ];
+    const photoSections = [];
+    if (installation.category === 'INSTALLATION_ONLY' || installation.category === 'INSTALLATION_AND_EARTHING') {
+      photoSections.push('INSTALLATION_PHOTO');
+    }
+    if (installation.category === 'INSTALLATION_AND_EARTHING' || installation.category === 'EARTHING_ONLY') {
+      photoSections.push('EARTHING_PHOTO');
+    }
+    if (installation.category === 'SERVICE_CALL') {
+      photoSections.push('SERVICE_PHOTO');
+    }
+    if (photoSections.length === 0) {
+      photoSections.push('GENERAL_PHOTO');
+    }
     
-    const requiredCategories = installation.category === 'INSTALLATION_ONLY'
-      ? BASE_PHOTO_CATEGORIES
-      : [...BASE_PHOTO_CATEGORIES, 'Earthing'];
-
     const { data: photos, error: photosError } = await supabase
       .from('installation_photos')
       .select('category')
@@ -80,10 +78,11 @@ export async function submitInstallation(installationId: string) {
     }
 
     const uploadedCategories = new Set(photos.map((p: any) => p.category));
-    const missingPhotos = requiredCategories.filter(c => !uploadedCategories.has(c));
+    const missingPhotos = photoSections.filter(c => !uploadedCategories.has(c));
 
     if (missingPhotos.length > 0) {
-      return { success: false, error: `Missing required photos: ${missingPhotos.join(', ')}` };
+      const formattedMissing = missingPhotos.map(c => c.replace('_', ' '));
+      return { success: false, error: `Missing required photos: ${formattedMissing.join(', ')}` };
     }
 
     // 5. Update Status to UNDER_VERIFICATION

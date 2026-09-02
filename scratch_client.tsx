@@ -30,7 +30,6 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
   const supabase = createClient();
   
   const [selectedInst, setSelectedInst] = useState<any | null>(null);
-  const [assigningPartnerInst, setAssigningPartnerInst] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   
@@ -43,19 +42,16 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
   React.useEffect(() => {
     if (selectedInst) {
       loadDetails(selectedInst.id);
-    }
-    
-    if (selectedInst || assigningPartnerInst) {
       document.body.style.overflow = 'hidden';
     } else {
-      if (!selectedInst) {
-        setChecklists([]);
-        setPhotos([]);
-      }
+      setChecklists([]);
+      setPhotos([]);
       document.body.style.overflow = '';
     }
-    return () => { document.body.style.overflow = ''; };
-  }, [selectedInst, assigningPartnerInst]);
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [selectedInst]);
 
   const backdropVariants = {
     hidden: { opacity: 0 },
@@ -188,8 +184,6 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
     if (res.success) {
       router.refresh();
       setSelectedInst(null);
-      setAssigningPartnerInst(null);
-      setSelectedPartnerId('');
     } else {
       alert("Failed to assign partner: " + res.error);
     }
@@ -261,8 +255,8 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                 const p = inst.partners;
 
                 return (
-                  <tr key={inst.id} className="acs-table-row cursor-pointer" onClick={() => setSelectedInst(inst)}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.display_id || inst.id}</td>
+                  <tr key={inst.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedInst(inst)}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{c?.name}</div>
                       <div className="text-sm text-gray-500">{c?.city}</div>
@@ -295,73 +289,6 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
         <Pagination totalItems={totalCount} />
       </div>
 
-      {/* Assign Partner Modal */}
-      <AnimatePresence>
-        {assigningPartnerInst && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="acs-backdrop"
-              onClick={() => { setAssigningPartnerInst(null); setSelectedPartnerId(''); }}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="acs-modal"
-            >
-              <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                <h3 className="text-lg font-bold text-gray-900">Assign Installation Partner</h3>
-                <button onClick={() => { setAssigningPartnerInst(null); setSelectedPartnerId(''); }} className="text-gray-400 hover:text-gray-500">
-                  <span className="sr-only">Close</span>
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-6">
-                <p className="text-sm text-gray-500 mb-4">
-                  Select a partner for installation #{assigningPartnerInst.display_id || assigningPartnerInst.id.substring(0,8)}. The selected partner will be notified.
-                </p>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Installation Partner</label>
-                    <select 
-                      value={selectedPartnerId}
-                      onChange={(e) => setSelectedPartnerId(e.target.value)}
-                      className="w-full rounded-md border-gray-300 border px-3 text-sm py-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select a partner...</option>
-                      {partners.map(p => <option key={p.id} value={p.id}>{p.name} {p.metadata?.serviceRegions ? `(${p.metadata.serviceRegions.join(', ')})` : ''}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3 mt-8">
-                  <button 
-                    onClick={() => { setAssigningPartnerInst(null); setSelectedPartnerId(''); }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none"
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (selectedPartnerId) { assignPartner(assigningPartnerInst.id, selectedPartnerId); }
-                    }}
-                    className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none disabled:opacity-50"
-                    disabled={!selectedPartnerId || isSubmitting}
-                  >
-                    {isSubmitting ? 'Assigning...' : 'Assign Partner'}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
       {/* Side Drawer */}
       <AnimatePresence>
         {selectedInst && (
@@ -372,7 +299,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
               animate="visible"
               exit="hidden"
               transition={{ duration: 0.2 }}
-              className="acs-backdrop absolute" 
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" 
               onClick={() => setSelectedInst(null)} 
               aria-hidden="true" 
             />
@@ -450,7 +377,30 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                       </div>
                     )}
 
-
+                    {/* Assign Partner */}
+                    {selectedInst.status === 'NEW' && (
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <h3 className="font-bold text-blue-800 mb-2">Assign Installation Partner</h3>
+                        <div className="flex gap-2">
+                          <select 
+                            value={selectedPartnerId}
+                            onChange={(e) => setSelectedPartnerId(e.target.value)}
+                            className="flex-1 rounded-md border-gray-300 border px-3 text-sm py-2"
+                          >
+                            <option value="">Select a partner...</option>
+                            {partners.map(p => <option key={p.id} value={p.id}>{p.name} ({p.metadata?.serviceRegions?.join(', ')})</option>)}
+                          </select>
+                          <button 
+                            onClick={() => {
+                              if (selectedPartnerId) { assignPartner(selectedInst.id, selectedPartnerId); }
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded whitespace-nowrap"
+                          >
+                            Dispatch Job
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>

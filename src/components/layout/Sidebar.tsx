@@ -1,6 +1,7 @@
 "use client";
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
@@ -80,9 +81,9 @@ export function Sidebar({ user }: { user: DashboardUser }) {
   const navItems = NAVIGATION_ITEMS[user.role] || [];
 
   return (
-    <div className="flex flex-col w-64 bg-primary border-r border-[#1b2e2a] min-h-screen text-white">
+    <div className="flex flex-col w-64 bg-[#0a0a0a] border-r border-[#1a1a1a] min-h-screen text-white">
       <div className="flex items-center justify-center h-16 border-b border-white/10">
-        <span className="text-xl font-bold tracking-wider text-accent">ACS ENERGY</span>
+        <Image src="/logo.png" alt="ACS ENERGY" width={160} height={45} className="object-contain" priority />
       </div>
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="px-2 space-y-1">

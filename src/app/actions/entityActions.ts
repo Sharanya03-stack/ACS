@@ -30,7 +30,7 @@ export async function createCustomer(formData: FormData) {
     return { error: 'Address is required.' };
   }
 
-  const { error } = await supabase.from('customers').insert({
+  const { data, error } = await supabase.from('customers').insert({
     name: formData.get('name'),
     phone: formData.get('phone'),
     email: formData.get('email') || null,
@@ -39,11 +39,11 @@ export async function createCustomer(formData: FormData) {
     state: formData.get('state'),
     pincode: formData.get('pincode'),
     dealer_id
-  });
+  }).select().single();
 
   if (error) return { error: error.message };
   revalidatePath('/', 'layout');
-  return { success: true };
+  return { success: true, id: data?.id, data };
 }
 
 export async function updateCustomer(customerId: string, editForm: any) {
@@ -111,7 +111,7 @@ export async function createVehicle(formData: FormData) {
     if (org && org.parent_org_id) oem_id = org.parent_org_id;
   }
 
-  const { error } = await supabase.from('vehicles').insert({
+  const { data, error } = await supabase.from('vehicles').insert({
     vin: formData.get('vin'),
     model: formData.get('model'),
     sale_date: formData.get('sale_date') || new Date().toISOString().split('T')[0],
@@ -119,11 +119,11 @@ export async function createVehicle(formData: FormData) {
     customer_id: customerId,
     dealer_id,
     oem_id
-  });
+  }).select().single();
 
   if (error) return { error: error.message };
   revalidatePath('/', 'layout');
-  return { success: true };
+  return { success: true, id: data?.id, data };
 }
 
 export async function updateVehicle(id: string, formData: FormData) {
@@ -163,7 +163,7 @@ export async function createCharger(formData: FormData) {
     }
   }
 
-  const { error } = await supabase.from('chargers').insert({
+  const { data, error } = await supabase.from('chargers').insert({
     serial_number: formData.get('serial_number'),
     model: formData.get('model'),
     power_rating: parseFloat(formData.get('power_rating') as string) || 7.4,
@@ -173,14 +173,19 @@ export async function createCharger(formData: FormData) {
     warranty_months: parseInt(formData.get('warranty_months') as string) || null,
     warranty_start_date: formData.get('warranty_start_date') || null,
     warranty_expiry_date: formData.get('warranty_expiry_date') || null
-  });
+  }).select().single();
 
   if (error) {
-    if (error.code === '23505') return { error: 'This vehicle already has a charger assigned.' };
-    return { error: error.message };
-  }
+      if (error.code === '23505') {
+        if (error.message && error.message.includes('serial_number')) {
+          return { error: 'A charger with this serial number already exists.' };
+        }
+        return { error: 'This vehicle already has a charger assigned.' };
+      }
+      return { error: error.message };
+    }
   revalidatePath('/', 'layout');
-  return { success: true };
+  return { success: true, id: data?.id, data };
 }
 
 export async function updateCharger(id: string, formData: FormData) {

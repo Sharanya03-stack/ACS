@@ -263,7 +263,7 @@ export function InteractiveMetricCards({ oems, dealerships, partners, technician
               animate="visible"
               exit="hidden"
               transition={{ duration: 0.2 }}
-              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" 
+              className="acs-backdrop absolute" 
               onClick={closeModal} 
             />
             

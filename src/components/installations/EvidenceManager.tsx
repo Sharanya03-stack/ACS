@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { uploadEvidence } from '@/app/actions/uploadEvidence';
+import { Camera, Image as ImageIcon } from 'lucide-react';
 
 interface EvidenceManagerProps {
   installationId: string;
@@ -13,7 +14,9 @@ interface EvidenceManagerProps {
 }
 
 export function EvidenceManager({ installationId, category, existingPhotos, onUploadSuccess }: EvidenceManagerProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [showUploadMenu, setShowUploadMenu] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
 
@@ -21,33 +24,50 @@ export function EvidenceManager({ installationId, category, existingPhotos, onUp
 
   const handlePhotoClick = (cat: string) => {
     setActiveCategory(cat);
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+    setShowUploadMenu(cat);
+  };
+
+  const handleTakePhoto = () => {
+    if (cameraInputRef.current) {
+      cameraInputRef.current.click();
     }
+    setShowUploadMenu(null);
+  };
+
+  const handleGallery = () => {
+    if (galleryInputRef.current) {
+      galleryInputRef.current.click();
+    }
+    setShowUploadMenu(null);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!activeCategory || !e.target.files || e.target.files.length === 0) return;
-    
-    const file = e.target.files[0];
-    e.target.value = ''; // Reset input
+    const files = e.target.files;
+    if (!activeCategory || !files || files.length === 0) return;
     
     setUploadingState(prev => ({ ...prev, [activeCategory]: true }));
     
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('installationId', installationId);
-    formData.append('category', activeCategory);
+    let hasError = false;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('installationId', installationId);
+      formData.append('category', activeCategory);
+      
+      const res = await uploadEvidence(formData);
+      if (res.error) {
+        toast.error(res.error);
+        hasError = true;
+      }
+    }
     
-    const res = await uploadEvidence(formData);
-    
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success(res.message || 'Photo uploaded');
+    if (!hasError) {
+      toast.success(files.length > 1 ? 'Photos uploaded' : 'Photo uploaded');
       onUploadSuccess();
     }
     
+    e.target.value = ''; // Reset input
     setUploadingState(prev => ({ ...prev, [activeCategory]: false }));
     setActiveCategory(null);
   };
@@ -56,11 +76,21 @@ export function EvidenceManager({ installationId, category, existingPhotos, onUp
     <div className="mt-8 border-t pt-6">
       <h3 className="text-lg font-medium text-gray-900 mb-4">Evidence Photos</h3>
       
+      {/* Hidden File Inputs for Photo Upload */}
       <input 
         type="file" 
         accept="image/jpeg,image/png,image/webp"
+        capture="environment"
         className="hidden" 
-        ref={fileInputRef}
+        ref={cameraInputRef}
+        onChange={handleFileChange}
+      />
+      <input 
+        type="file" 
+        multiple
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden" 
+        ref={galleryInputRef}
         onChange={handleFileChange}
       />
 
@@ -102,6 +132,36 @@ export function EvidenceManager({ installationId, category, existingPhotos, onUp
         </div>
       ) : (
         <p className="text-sm text-gray-500 text-center">No photos uploaded yet.</p>
+      )}
+
+      {showUploadMenu && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-900">Add Photos</h3>
+            </div>
+            <div className="p-4 flex flex-col gap-3">
+              <button
+                onClick={handleTakePhoto}
+                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
+              >
+                <Camera className="w-5 h-5 mr-2 text-gray-500" /> Take Photo
+              </button>
+              <button
+                onClick={handleGallery}
+                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
+              >
+                <ImageIcon className="w-5 h-5 mr-2 text-gray-500" /> Choose from Gallery
+              </button>
+              <button
+                onClick={() => setShowUploadMenu(null)}
+                className="w-full flex items-center justify-center px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-lg mt-2 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

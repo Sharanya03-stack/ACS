@@ -149,9 +149,8 @@ export default async function PublicTrackingPage({
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BatteryCharging className="h-8 w-8 text-[#D6A84F]" />
-            <span className="font-bold text-xl text-[#243B36] tracking-tight">ACS ENERGY</span>
+          <div className="flex items-center">
+            <Image src="/logo.png" alt="ACS ENERGY Logo" width={140} height={40} className="object-contain" priority />
           </div>
           <div className="text-sm font-medium text-gray-500">
             Order Tracking
@@ -167,7 +166,7 @@ export default async function PublicTrackingPage({
               <h1 className="text-2xl font-bold">Track Your Installation</h1>
               <p className="text-[#D6A84F] font-mono mt-1 text-sm">{token}</p>
             </div>
-            <div className="bg-white/10 px-4 py-2 rounded-lg border border-white/20 backdrop-blur-sm">
+            <div className="bg-white/10 px-4 py-2 rounded-lg border border-white/20 ">
               <p className="text-xs text-gray-300 uppercase tracking-wider font-semibold mb-0.5">Status</p>
               <p className="font-bold text-lg">{inst.status.replace(/_/g, ' ')}</p>
             </div>

@@ -107,7 +107,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
         animate="visible"
         exit="hidden"
         transition={{ duration: 0.2 }}
-        className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" 
+        className="acs-backdrop absolute" 
         onClick={onClose} 
         aria-hidden="true" 
       />
@@ -118,7 +118,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="relative z-10 flex flex-col w-full max-w-5xl max-h-[90vh] bg-gray-50 rounded-2xl shadow-2xl overflow-hidden"
+        className="acs-modal max-w-5xl max-h-[90vh]"
       >
         {/* Header */}
         <div className="px-6 py-5 bg-[#243B36] text-white flex justify-between items-center shrink-0 shadow-sm z-20">
@@ -131,7 +131,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
               <p className="text-sm text-gray-300 mt-1 flex items-center gap-2">
                 <span className="font-medium text-white">{customer.name}</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                <span>ID: {customer.customer_id || customer.id.slice(0, 8).toUpperCase()}</span>
+                <span>ID: {customer.display_id || customer.customer_id || customer.id.slice(0, 8).toUpperCase()}</span>
                 {customer.status && (
                   <>
                     <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
@@ -203,7 +203,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
                       </div>
                       <div className="col-span-2 sm:col-span-1">
                         <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Customer ID</p>
-                        <p className="text-sm text-gray-900">{customer?.customer_id || customer?.id?.slice(0,8).toUpperCase() || 'N/A'}</p>
+                        <p className="text-sm text-gray-900">{customer?.display_id || customer?.customer_id || customer?.id?.slice(0,8).toUpperCase() || 'N/A'}</p>
                       </div>
                       <div className="col-span-2 sm:col-span-1">
                         <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Phone</p>

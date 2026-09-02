@@ -10,6 +10,7 @@ import { startJobAction, saveChecklistAction } from '../actions';
 import { uploadEvidence } from '@/app/actions/uploadEvidence';
 import { submitInstallation } from '@/app/actions/submitInstallation';
 import { createClient } from '@/utils/supabase/client';
+import { Camera, CheckCircle2, ChevronLeft, Loader2, PlayCircle, PlusCircle, Trash2, Image as ImageIcon } from 'lucide-react';
 
 const DEFAULT_CHECKLIST = [
   { item_code: 'c1', item_name: 'Charger received', status: 'PENDING', is_required: true },
@@ -24,20 +25,6 @@ const DEFAULT_CHECKLIST = [
   { item_code: 'c10', item_name: 'Installation completed', status: 'PENDING', is_required: true },
 ];
 
-const BASE_PHOTO_CATEGORIES = [
-  'Before Installation',
-  'Electrical Panel',
-  'MCB',
-  'Charger Mounting',
-  'Charger Serial Number',
-  'Wiring',
-  'Final Installed Charger',
-  'Charger Powered On',
-  'Charging Test'
-];
-
-const EARTHING_PHOTO_CATEGORY = 'Earthing';
-
 export default function TechnicianJobClient({ job, existingChecklists, existingPhotos, events = [] }: { job: any, existingChecklists: any[], existingPhotos: any[], events?: any[] }) {
   const router = useRouter();
   const supabase = createClient();
@@ -45,45 +32,72 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
   const customer = job.customers;
   const vehicle = job.vehicles;
 
-  // Form State
-  const [otp, setOtp] = useState('');
+  // Derive which sections to show based purely on backend category
+  const photoSections: { id: string, title: string, description: string }[] = [];
+  if (job.category === 'INSTALLATION_ONLY' || job.category === 'INSTALLATION_AND_EARTHING') {
+    photoSections.push({
+      id: 'INSTALLATION_PHOTO',
+      title: 'Installation Photos',
+      description: 'Upload photos showing the completed charger installation.'
+    });
+  }
+  if (job.category === 'INSTALLATION_AND_EARTHING' || job.category === 'EARTHING_ONLY') {
+    photoSections.push({
+      id: 'EARTHING_PHOTO',
+      title: 'Earthing Photos',
+      description: 'Upload photos showing the earthing work.'
+    });
+  }
+  if (job.category === 'SERVICE_CALL') {
+    photoSections.push({
+      id: 'SERVICE_PHOTO',
+      title: 'Service Photos',
+      description: 'Upload photos of the service/maintenance work.'
+    });
+  }
+  // Fallback if no matching category
+  if (photoSections.length === 0) {
+    photoSections.push({
+      id: 'GENERAL_PHOTO',
+      title: 'General Photos',
+      description: 'Upload any required photos.'
+    });
+  }
+
+  const [starting, setStarting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [activePhotoSection, setActivePhotoSection] = useState<string | null>(null);
+  const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [showUploadMenu, setShowUploadMenu] = useState<string | null>(null);
+
   // Use existing checklists if any, otherwise default
   const initialChecklist = existingChecklists.length > 0 ? 
     DEFAULT_CHECKLIST.map(def => {
-      const found = existingChecklists.find(e => e.item_code === def.item_code);
-      return found ? { ...def, status: found.status } : def;
+      const existing = existingChecklists.find(c => c.item_code === def.item_code);
+      return existing ? { ...def, status: existing.status } : def;
     }) : DEFAULT_CHECKLIST;
 
   const [checklist, setChecklist] = useState(initialChecklist);
-  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
-  
-  // Photos State
-  const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-
-  const requiredCategories = job.category === 'INSTALLATION_ONLY'
-    ? BASE_PHOTO_CATEGORIES
-    : [...BASE_PHOTO_CATEGORIES.slice(0, 3), EARTHING_PHOTO_CATEGORY, ...BASE_PHOTO_CATEGORIES.slice(3)];
+  const [savingChecklist, setSavingChecklist] = useState(false);
 
   useEffect(() => {
-    // Generate public or signed URLs for existing photos
+    // Generate signed URLs for existing photos mapping by photo ID
     const fetchPhotoUrls = async () => {
       const urls: Record<string, string> = {};
       
       for (const photo of existingPhotos) {
-        // Because the bucket is private, we must use createSignedUrl
         const { data } = await supabase.storage
           .from('installation-evidence')
           .createSignedUrl(photo.storage_path, 3600); // 1 hour expiry
           
         if (data?.signedUrl) {
-          urls[photo.category] = data.signedUrl;
+          urls[photo.id] = data.signedUrl;
         }
       }
-      
       setPhotoUrls(urls);
     };
     
@@ -92,235 +106,246 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
     }
   }, [existingPhotos, supabase.storage]);
 
-  // Debounced auto-save for checklist
-  useEffect(() => {
-    if (job.status === 'IN_PROGRESS' || job.status === 'REVISIT_REQUIRED') {
-      const timeoutId = setTimeout(async () => {
-        await saveChecklistAction(job.id, checklist);
-      }, 1000);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [checklist, job.status, job.id]);
-
-  const isCompleted = ['UNDER_VERIFICATION', 'VERIFIED', 'COMPLETED'].includes(job.status);
-  // Also support old spaced enum values if any exist
-  const isStarted = job.status === 'IN_PROGRESS';
-  const isCompletedLegacy = ['UNDER_VERIFICATION', 'VERIFIED', 'COMPLETED'].includes(job.status);
-  const isFinished = isCompleted || isCompletedLegacy;
-
-  const handleStartJob = async () => {
+  const handleStart = async () => {
+    setStarting(true);
     const res = await startJobAction(job.id);
-    if (res.error) {
-      toast.error(res.error);
+    if (res.success) {
+      toast.success('Job started!');
+      router.refresh();
     } else {
-      toast.success("Job started!");
+      toast.error(res.error || 'Failed to start job');
     }
+    setStarting(false);
   };
 
-  const getTimelineLabel = (event: any) => {
-    switch (event.action) {
-      case 'CREATED': return 'Order Placed';
-      case 'TECHNICIAN_ASSIGNED': return 'Engineer Assigned';
-      case 'STATUS_CHANGED': 
-        const status = event.new_value?.status;
-        if (status === 'IN_PROGRESS') return 'Engineer En Route';
-        if (status === 'UNDER_VERIFICATION') return 'Installed';
-        if (status === 'VERIFIED') return 'Installed';
-        if (status === 'COMPLETED') return 'Closed';
-        return null; // Hide other status changes
-      default: return null;
-    }
-  };
-
-  const handleChecklistChange = (index: number, status: string) => {
-    const newChecklist = [...checklist];
-    newChecklist[index].status = status;
+  const handleChecklistToggle = async (itemCode: string, opt: string) => {
+    if (job.status !== 'IN_PROGRESS') return;
+    
+    const newChecklist = checklist.map(item => {
+      if (item.item_code === itemCode) {
+        return { ...item, status: opt };
+      }
+      return item;
+    });
+    
     setChecklist(newChecklist);
+    
+    setSavingChecklist(true);
+    await saveChecklistAction(job.id, newChecklist);
+    setSavingChecklist(false);
   };
 
-  const handlePhotoClick = (category: string) => {
-    if (isFinished) return;
-    setActiveCategory(category);
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+  const triggerUploadMenu = (sectionId: string) => {
+    if (job.status !== 'IN_PROGRESS') return;
+    setActivePhotoSection(sectionId);
+    setShowUploadMenu(sectionId);
+  };
+
+  const handleTakePhoto = () => {
+    if (cameraInputRef.current) {
+      cameraInputRef.current.click();
     }
+    setShowUploadMenu(null);
+  };
+
+  const handleGallery = () => {
+    if (galleryInputRef.current) {
+      galleryInputRef.current.click();
+    }
+    setShowUploadMenu(null);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!activeCategory || !e.target.files || e.target.files.length === 0) return;
+    if (!activePhotoSection || !e.target.files || e.target.files.length === 0) return;
     
-    const file = e.target.files[0];
+    const files = Array.from(e.target.files);
     e.target.value = ''; // Reset input
     
-    setUploadingState(prev => ({ ...prev, [activeCategory]: true }));
+    setUploadingState(prev => ({ ...prev, [activePhotoSection]: true }));
     
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('installationId', job.id);
-    formData.append('category', activeCategory);
-    
-    const res = await uploadEvidence(formData);
-    
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success(res.message || 'Photo uploaded');
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('installationId', job.id);
+      formData.append('category', activePhotoSection); // Uses the simplified backend category
+      
+      const res = await uploadEvidence(formData);
+      if (res.error) {
+        toast.error(`Failed to upload ${file.name}: ${res.error}`);
+      } else {
+        toast.success(`Uploaded ${file.name}`);
+      }
     }
     
-    setUploadingState(prev => ({ ...prev, [activeCategory]: false }));
-    setActiveCategory(null);
+    setUploadingState(prev => ({ ...prev, [activePhotoSection]: false }));
+    setActivePhotoSection(null);
+    router.refresh(); // Refresh to fetch newly uploaded photos
   };
 
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm('Remove this photo?')) return;
+    
+    // Deleting photo directly via Supabase since RLS allows it before submission
+    const { error } = await supabase
+      .from('installation_photos')
+      .delete()
+      .eq('id', photoId);
+      
+    if (error) {
+      toast.error('Failed to remove photo');
+    } else {
+      toast.success('Photo removed');
+      router.refresh();
+    }
+  };
+
+  const isChecklistComplete = checklist.every(item => !item.is_required || item.status === 'YES' || item.status === 'N/A');
+  
+  // Submit checks that at least 1 photo per required section is present
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp !== '4821') {
-      toast.error("Invalid OTP! For demo purposes, use '4821'.");
-      return;
-    }
-
-    if (checklist.some(c => c.status === 'PENDING' || c.status === 'NO')) {
-      toast.error("Please complete the installation checklist successfully before submitting.");
+    
+    if (!isChecklistComplete) {
+      toast.error('Please complete all checklist items before submitting.');
       return;
     }
     
-    const uploadedCategories = new Set(existingPhotos.map(p => p.category));
-    const missingPhotos = requiredCategories.filter(c => !uploadedCategories.has(c));
-
-    if (missingPhotos.length > 0) {
-      toast.error(`Missing required photos: ${missingPhotos.join(', ')}`);
-      return;
+    for (const section of photoSections) {
+      const hasPhoto = existingPhotos.some(p => p.category === section.id);
+      if (!hasPhoto) {
+        toast.error(`Please upload at least one photo for ${section.title}`);
+        return;
+      }
     }
 
+    setSubmitting(true);
     const res = await submitInstallation(job.id);
-    if (res.error) {
-      toast.error(res.error, { duration: 5000 });
+    if (res.success) {
+      toast.success('Installation submitted successfully!');
+      router.refresh();
     } else {
-      toast.success(res.message || 'Installation submitted successfully!');
+      toast.error(res.error || 'Failed to submit installation');
+      setSubmitting(false);
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.15, delayChildren: 0.1 } },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
-  };
+  const isFinished = job.status === 'COMPLETED' || job.status === 'REJECTED';
 
   return (
-    <div className="max-w-md mx-auto py-6 px-4 pb-24">
-      <Link href="/technician/dashboard" className="text-[#243B36] hover:text-[#D6A84F] transition-colors text-sm font-medium mb-4 inline-block">&larr; Back to Jobs</Link>
-      
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6 relative">
-        <div className="h-32 relative bg-[#243B36]">
-          <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
-            <div>
-              <p className="text-white/80 text-xs uppercase tracking-wider font-semibold mb-1">Installation Job</p>
-              <h1 className="text-xl font-bold text-white">{job.id}</h1>
+    <div className="max-w-3xl mx-auto space-y-6 pb-24">
+      {/* Hidden File Inputs for Photo Upload */}
+        <input 
+          type="file" 
+          accept="image/jpeg,image/png,image/webp"
+          capture="environment"
+          className="hidden" 
+          ref={cameraInputRef}
+          onChange={handleFileChange}
+        />
+        <input 
+          type="file" 
+          multiple
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden" 
+          ref={galleryInputRef}
+          onChange={handleFileChange}
+        />
+
+      <div className="flex items-center justify-between">
+        <Link href="/technician/dashboard" className="inline-flex items-center text-sm text-gray-500 hover:text-gray-900 transition-colors">
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Back to Jobs
+        </Link>
+        <div className={`px-2.5 py-1 text-xs font-semibold rounded-full uppercase tracking-wider
+          ${job.status === 'ASSIGNED' ? 'bg-blue-100 text-blue-700' : ''}
+          ${job.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700' : ''}
+          ${job.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : ''}
+          ${job.status === 'REJECTED' ? 'bg-red-100 text-red-700' : ''}
+        `}>
+          {job.status.replace('_', ' ')}
+        </div>
+      </div>
+
+      <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+        <div className="p-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Job Details</h1>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</p>
+                <p className="font-medium text-gray-900">{customer?.name}</p>
+                <p className="text-gray-600 text-sm mt-1">{customer?.phone}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</p>
+                <p className="text-gray-900 text-sm mt-1">{customer?.address}, {customer?.city} {customer?.pincode}</p>
+              </div>
             </div>
-            <span className="inline-block px-2.5 py-1 text-xs font-bold rounded-full bg-white text-gray-900 shadow-sm">
-              {job.status}
-            </span>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vehicle</p>
+                <p className="font-medium text-gray-900">{vehicle?.model}</p>
+                <p className="text-gray-600 text-sm mt-1 font-mono text-xs">VIN: {vehicle?.vin}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Scheduled Date</p>
+                <p className="text-gray-900 text-sm mt-1">{job.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : 'Not scheduled'}</p>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="p-4 bg-white relative z-10">
-          <p className="font-bold text-gray-900">{customer?.name}</p>
-          <p className="text-sm text-gray-600 mb-2">{customer?.phone}</p>
-          <p className="text-sm text-gray-600 mb-4">{customer?.address}, {customer?.city}, {customer?.pincode}</p>
-          <div className="text-sm px-3 py-2 bg-gray-50 rounded-lg border border-gray-100">
-            <span className="font-semibold text-gray-700">Vehicle:</span> {vehicle?.model} (VIN: {vehicle?.vin})
+      </div>
+
+      {job.status === 'ASSIGNED' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white border rounded-xl shadow-sm p-8 text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <PlayCircle className="h-8 w-8 text-blue-600" />
           </div>
-        </div>
-      </motion.div>
-
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Installation Timeline</h2>
-        {events && events.length > 0 ? (
-          <div className="flow-root">
-            <ul className="-mb-8">
-              {events
-                .filter(e => getTimelineLabel(e) !== null) // Only show mapped events
-                .map((event, eventIdx, filteredEvents) => (
-                <li key={event.id}>
-                  <div className="relative pb-8">
-                    {eventIdx !== filteredEvents.length - 1 ? (
-                      <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-                    ) : null}
-                    <div className="relative flex space-x-3">
-                      <div>
-                        <span className="h-8 w-8 rounded-full bg-acs-primary/10 flex items-center justify-center ring-8 ring-white">
-                          <svg className="w-4 h-4 text-acs-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1 flex justify-between space-x-4 pt-1.5">
-                        <div>
-                          <p className="text-sm text-gray-900 font-medium">{getTimelineLabel(event)}</p>
-                        </div>
-                        <div className="text-right text-xs text-gray-500 whitespace-nowrap">
-                          <p>{new Date(event.created_at).toLocaleDateString()}</p>
-                          <p>{new Date(event.created_at).toLocaleTimeString()}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">No events recorded yet.</p>
-        )}
-      </motion.div>
-
-      {!isFinished && !isStarted && (
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
-          {job.status === 'REVISIT_REQUIRED' && job.rejection_reason && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded p-4">
-              <h3 className="text-red-800 font-bold mb-1">Revisit Required</h3>
-              <p className="text-red-600 text-sm">{job.rejection_reason}</p>
-              <p className="text-red-500 text-xs mt-2">Please fix the issues below and resubmit the checklist and evidence.</p>
-            </div>
-          )}
-
-          {!isStarted && !isFinished && (
-            <button 
-              onClick={handleStartJob}
-              className={`w-full py-4 rounded-xl text-white font-bold tracking-wider shadow-lg transition-colors ${
-                job.status === 'REVISIT_REQUIRED' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#243B36] hover:bg-[#1a2b27]'
-              }`}
-            >
-            {job.status === 'REVISIT_REQUIRED' ? 'FIX REJECTION (START)' : 'START INSTALLATION'}
-            </button>
-          )}
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Ready to begin?</h2>
+          <p className="text-gray-500 mb-6 max-w-sm mx-auto">Start this job to access the checklist and begin uploading evidence.</p>
+          <button
+            onClick={handleStart}
+            disabled={starting}
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-gray-900 hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 transition-all"
+          >
+            {starting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <PlayCircle className="h-5 w-5 mr-2" />}
+            Start Job
+          </button>
         </motion.div>
       )}
 
-      {(isStarted || isFinished) && (
-        <motion.form 
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          onSubmit={handleSubmit} 
-          className="space-y-6"
-        >
+      {job.status === 'REJECTED' && job.rejection_reason && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <h3 className="text-red-800 font-bold mb-2">Installation Rejected</h3>
+          <p className="text-red-700 text-sm">{job.rejection_reason}</p>
+          <p className="text-red-600 text-xs mt-4 italic">Please review the reason and correct any issues. (Note: Only an admin/dealer can reset the status to In Progress).</p>
+        </div>
+      )}
+
+      {(job.status === 'IN_PROGRESS' || isFinished) && (
+        <div className="space-y-6">
           {/* Checklist */}
-          <motion.div variants={itemVariants} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h2 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Safety & Quality Checklist</h2>
-            <div className="space-y-4">
+          <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+            <div className="p-6 border-b flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Installation Checklist</h2>
+                <p className="text-sm text-gray-500 mt-1">Complete all required items.</p>
+              </div>
+              {savingChecklist && <Loader2 className="animate-spin h-5 w-5 text-gray-400" />}
+            </div>
+            <div className="divide-y">
               {checklist.map((item, index) => (
-                <div key={item.item_code} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                  <p className="text-sm text-gray-700 flex-1">{item.item_name}</p>
+                <div key={index} className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-4 hover:bg-gray-50 transition-colors ${item.status !== 'PENDING' ? 'bg-gray-50/50' : ''}`}>
+                  <p className={`text-sm flex-1 ${item.status !== 'PENDING' ? 'text-gray-900 opacity-70' : 'text-gray-900 font-medium'}`}>{item.item_name}</p>
                   <div className="flex rounded-md shadow-sm">
                     {['YES', 'NO', 'N/A'].map(opt => (
                       <button
                         key={opt}
                         type="button"
                         disabled={isFinished}
-                        onClick={() => handleChecklistChange(index, opt)}
+                        onClick={() => handleChecklistToggle(item.item_code, opt)}
                         className={`px-3 py-1 text-xs border transition-colors ${
                           item.status === opt 
                             ? (opt === 'YES' || opt === 'N/A' ? 'bg-green-500 text-white border-green-500' : 'bg-red-500 text-white border-red-500')
@@ -334,103 +359,161 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
 
-          {/* Photos */}
-          <motion.div variants={itemVariants} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex justify-between items-center mb-4 border-b pb-2">
-              <h2 className="text-lg font-bold text-gray-900">Installation Evidence</h2>
+          {/* Flexible Photo Evidence System */}
+          <div className="bg-white border rounded-xl shadow-sm overflow-hidden p-6 space-y-8">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Evidence Photos</h2>
+              <p className="text-sm text-gray-500 mt-1">Capture and upload photos for each section below.</p>
             </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Upload required photos for this installation. Allowed formats: JPEG, PNG, WEBP (Max 5MB).
-            </p>
-            
-            <input 
-              type="file" 
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden" 
-              ref={fileInputRef}
-              onChange={handleFileChange}
-            />
 
-            <div className="grid grid-cols-2 gap-4">
-              {requiredCategories.map((category, index) => {
-                const url = photoUrls[category];
-                const isUploading = uploadingState[category];
-                
-                return (
-                  <div 
-                    key={index} 
-                    onClick={() => handlePhotoClick(category)}
-                    className={`border border-dashed rounded-lg p-2 flex flex-col items-center justify-center text-center relative overflow-hidden aspect-square transition-all ${
-                      url 
-                        ? 'border-green-500 bg-green-50' 
-                        : isFinished 
-                          ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed' 
-                          : 'border-gray-300 hover:border-[#D6A84F] hover:bg-gray-50 cursor-pointer'
-                    }`}
-                  >
-                    {isUploading ? (
-                      <div className="h-6 w-6 rounded-full border-2 border-gray-300 border-t-[#243B36] animate-spin mb-2" />
-                    ) : url ? (
-                      <Image 
-                        src={url}
-                        alt={category}
-                        fill
-                        className="object-cover opacity-90"
-                      />
-                    ) : (
-                      <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    )}
-                    
-                    {!url && !isUploading && (
-                      <span className="text-[10px] text-gray-600 font-medium leading-tight z-10 pointer-events-none">
-                        {category}
-                      </span>
-                    )}
-                    
-                    {url && (
-                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                        <span className="text-white text-xs font-bold">Retake</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
+            {photoSections.map(section => {
+              const sectionPhotos = existingPhotos.filter(p => p.category === section.id);
+              const isUploading = uploadingState[section.id];
+              
+              return (
+                <div key={section.id} className="border-t pt-6 first:border-0 first:pt-0">
+                  <h3 className="text-base font-bold text-gray-800">{section.title}</h3>
+                  <p className="text-sm text-gray-500 mb-4">{section.description}</p>
+                  
+                  {/* Photo Grid */}
+                  {sectionPhotos.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
+                      {sectionPhotos.map(photo => {
+                        const url = photoUrls[photo.id];
+                        return (
+                          <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group bg-gray-50">
+                            {url ? (
+                              <>
+                                <Image src={url} alt={section.title} fill className="object-cover" unoptimized />
+                                {!isFinished && (
+                                  <button 
+                                    onClick={() => handleDeletePhoto(photo.id)}
+                                    className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-white"
+                                    title="Remove photo"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-xs text-gray-400">Loading...</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
-          {/* OTP */}
-          {!isFinished && (
-            <motion.div variants={itemVariants} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h2 className="text-lg font-bold text-gray-900 mb-2">Customer Confirmation</h2>
-              <p className="text-xs text-gray-500 mb-4">Please ask the customer for the 4-digit OTP sent to their mobile number ({customer?.phone}).<br/><br/><strong>NOTE:</strong> This OTP is a prototype verification mechanism for the demo.</p>
-              <input 
-                type="text" 
-                maxLength={4}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="Demo OTP: 4821" 
-                className="w-full text-center text-2xl tracking-widest font-mono p-3 border border-gray-300 rounded-md focus:ring-[#243B36] focus:border-[#243B36] transition-shadow"
-                required
-              />
-            </motion.div>
-          )}
+                  {/* Add Photos Button */}
+                  {!isFinished && (
+                    <div className="flex items-center gap-4">
+                      {sectionPhotos.length > 0 && (
+                        <span className="text-sm font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                          {sectionPhotos.length} photo{sectionPhotos.length !== 1 ? 's' : ''} uploaded
+                        </span>
+                      )}
+                      
+                      <button
+                        onClick={() => triggerUploadMenu(section.id)}
+                        disabled={isUploading}
+                        className="inline-flex items-center justify-center px-4 py-2 border border-dashed border-gray-400 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 transition-colors"
+                      >
+                        {isUploading ? (
+                          <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Uploading...</>
+                        ) : (
+                          <><PlusCircle className="h-4 w-4 mr-2" /> {sectionPhotos.length > 0 ? 'Add More Photos' : 'Add Photos'}</>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-          {!isFinished && (
-            <motion.div variants={itemVariants}>
-              <button 
-                type="submit"
-                className="w-full bg-[#243B36] text-white font-bold py-4 rounded-lg shadow-sm hover:bg-[#1a2b27] transition-colors mt-4"
+          {job.status === 'IN_PROGRESS' && (
+            <div className="bg-gray-50 border rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <h3 className="font-bold text-gray-900">Ready to Submit?</h3>
+                <p className="text-sm text-gray-500">Ensure all checklist items are checked and photos are uploaded.</p>
+              </div>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting || !isChecklistComplete}
+                className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-gray-900 hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 transition-all"
               >
-                SUBMIT INSTALLATION
+                {submitting ? (
+                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5 mr-2" />
+                )}
+                {submitting ? 'Submitting...' : 'Submit Installation'}
               </button>
-            </motion.div>
+            </div>
           )}
-        </motion.form>
+        </div>
+      )}
+
+      {showUploadMenu && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-900">Add Photos</h3>
+            </div>
+            <div className="p-4 flex flex-col gap-3">
+              <button
+                onClick={handleTakePhoto}
+                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
+              >
+                <Camera className="w-5 h-5 mr-2 text-gray-500" /> Take Photo
+              </button>
+              <button
+                onClick={handleGallery}
+                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
+              >
+                <ImageIcon className="w-5 h-5 mr-2 text-gray-500" /> Choose from Gallery
+              </button>
+              <button
+                onClick={() => setShowUploadMenu(null)}
+                className="w-full flex items-center justify-center px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-lg mt-2 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUploadMenu && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-900">Add Photos</h3>
+            </div>
+            <div className="p-4 flex flex-col gap-3">
+              <button
+                onClick={handleTakePhoto}
+                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
+              >
+                <Camera className="w-5 h-5 mr-2 text-gray-500" /> Take Photo
+              </button>
+              <button
+                onClick={handleGallery}
+                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
+              >
+                <ImageIcon className="w-5 h-5 mr-2 text-gray-500" /> Choose from Gallery
+              </button>
+              <button
+                onClick={() => setShowUploadMenu(null)}
+                className="w-full flex items-center justify-center px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-lg mt-2 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

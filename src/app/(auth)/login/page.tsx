@@ -128,7 +128,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1C211F] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-black flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background Decor - Cinematic Image */}
       <motion.div 
         className="absolute inset-0 z-0 pointer-events-none"
@@ -136,13 +136,7 @@ export default function LoginPage() {
         animate={{ scale: 1 }}
         transition={{ duration: 15, ease: "linear", repeat: Infinity, repeatType: "reverse" }}
       >
-        <Image
-          src="/images/login-bg.jpg"
-          alt="EV Charging Station"
-          fill
-          className="object-cover opacity-70"
-          priority
-        />
+        
         {/* Dark Gradient Overlay for readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#1C211F] via-[#1C211F]/80 to-transparent"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-[#1C211F]/90 via-transparent to-[#1C211F]/90"></div>
@@ -167,7 +161,7 @@ export default function LoginPage() {
       <motion.div 
         animate={{ y: [0, -15, 0] }} 
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-        className="hidden lg:flex absolute top-1/4 left-[10%] bg-white/80 backdrop-blur border border-white p-3 rounded-2xl shadow-xl items-center gap-3 pointer-events-none z-10"
+        className="hidden lg:flex absolute top-1/4 left-[10%] bg-white border border-gray-200 p-3 rounded-2xl shadow-xl items-center gap-3 pointer-events-none z-10"
       >
         <div className="bg-[#243B36]/10 p-2 rounded-full text-[#243B36]"><BatteryCharging size={24} /></div>
         <div className="font-semibold text-sm text-[#243B36]">EV Charging<br/><span className="font-normal text-xs text-gray-500">Platform Online</span></div>
@@ -176,7 +170,7 @@ export default function LoginPage() {
       <motion.div 
         animate={{ y: [0, 15, 0] }} 
         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className="hidden lg:flex absolute bottom-1/4 right-[10%] bg-white/80 backdrop-blur border border-white p-3 rounded-2xl shadow-xl items-center gap-3 pointer-events-none z-10"
+        className="hidden lg:flex absolute bottom-1/4 right-[10%] bg-white border border-gray-200 p-3 rounded-2xl shadow-xl items-center gap-3 pointer-events-none z-10"
       >
         <div className="bg-[#D6A84F]/20 p-2 rounded-full text-[#c59844]"><ShieldCheck size={24} /></div>
         <div className="font-semibold text-sm text-[#243B36]">Secure Enterprise<br/><span className="font-normal text-xs text-gray-500">Access verified</span></div>
@@ -185,7 +179,7 @@ export default function LoginPage() {
       <motion.div 
         animate={{ y: [0, 10, 0] }} 
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-        className="hidden lg:flex absolute top-1/3 right-[12%] bg-white/80 backdrop-blur border border-white p-3 rounded-2xl shadow-xl items-center gap-3 pointer-events-none z-10"
+        className="hidden lg:flex absolute top-1/3 right-[12%] bg-white border border-gray-200 p-3 rounded-2xl shadow-xl items-center gap-3 pointer-events-none z-10"
       >
         <div className="bg-blue-50 p-2 rounded-full text-blue-600">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -196,7 +190,7 @@ export default function LoginPage() {
       <motion.div 
         animate={{ y: [0, -12, 0] }} 
         transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
-        className="hidden lg:flex absolute bottom-1/3 left-[12%] bg-white/80 backdrop-blur border border-white p-3 rounded-2xl shadow-xl items-center gap-3 pointer-events-none z-10"
+        className="hidden lg:flex absolute bottom-1/3 left-[12%] bg-white border border-gray-200 p-3 rounded-2xl shadow-xl items-center gap-3 pointer-events-none z-10"
       >
         <div className="bg-green-50 p-2 rounded-full text-green-600">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -210,9 +204,9 @@ export default function LoginPage() {
         transition={{ duration: 0.5 }}
         className="sm:mx-auto sm:w-full sm:max-w-md relative z-10"
       >
-        <h1 className="text-center text-4xl font-extrabold tracking-tight text-[#243B36]">
-          ACS ENERGY
-        </h1>
+          <div className="flex justify-center mb-4">
+            <Image src="/logo.png" alt="ACS ENERGY Logo" width={220} height={60} className="mx-auto drop-shadow-sm" />
+          </div>
         <h2 className="mt-2 text-center text-sm font-medium text-gray-600 uppercase tracking-widest">
           EV Charger Installation Platform
         </h2>
@@ -224,7 +218,7 @@ export default function LoginPage() {
         transition={{ duration: 0.5, delay: 0.1 }}
         className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10"
       >
-        <div className="bg-white/90 backdrop-blur py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-white">
+        <div className="bg-white py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-gray-100">
           
                     <div className="mb-6">
             <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -422,3 +416,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

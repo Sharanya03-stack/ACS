@@ -62,7 +62,7 @@ export default async function TechnicianDashboard({
               <div key={job.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-semibold text-gray-500">{job.id}</span>
+                    <span className="text-xs font-semibold text-gray-500">{job.display_id || job.id}</span>
                     <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${
                       isCompleted ? 'bg-green-100 text-green-800' 
                       : job.status === 'REVISIT_REQUIRED' ? 'bg-red-100 text-red-800'
