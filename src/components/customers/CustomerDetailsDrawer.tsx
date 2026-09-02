@@ -118,7 +118,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="acs-modal max-w-5xl max-h-[90vh]"
+        className="acs-modal flex flex-col w-full max-w-5xl max-h-[90vh]"
       >
         {/* Header */}
         <div className="px-6 py-5 bg-[#243B36] text-white flex justify-between items-center shrink-0 shadow-sm z-20">
