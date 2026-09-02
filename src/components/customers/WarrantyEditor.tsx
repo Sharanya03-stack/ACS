@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { FileText, Edit2 } from 'lucide-react';
+import { ShieldCheck, Edit2 } from 'lucide-react';
 import { updateChargerWarranty } from '@/app/actions/updateChargerWarranty';
 import toast from 'react-hot-toast';
 
@@ -15,6 +15,7 @@ export function WarrantyEditor({ charger, profile, onUpdated }: WarrantyProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // For the edit form we initialize with existing DB values
   const [months, setMonths] = useState(charger?.warranty_months?.toString() || '');
   const [startDate, setStartDate] = useState(charger?.warranty_start_date || '');
   const [expiryDate, setExpiryDate] = useState(charger?.warranty_expiry_date || '');
@@ -53,26 +54,45 @@ export function WarrantyEditor({ charger, profile, onUpdated }: WarrantyProps) {
     }
   };
 
+  // Helper to accurately display months, prioritizing exact date difference over potentially corrupt warranty_months
+  const getDisplayMonths = () => {
+    if (charger?.warranty_start_date && charger?.warranty_expiry_date) {
+      const start = new Date(charger.warranty_start_date);
+      const end = new Date(charger.warranty_expiry_date);
+      if (end >= start) {
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const roundedMonths = Math.round(diffDays / 30.436875);
+        if (roundedMonths > 0) return `${roundedMonths} months`;
+      }
+    }
+    // Fallback if one date is missing, but avoid returning negative values
+    if (charger?.warranty_months && charger.warranty_months > 0) {
+      return `${charger.warranty_months} months`;
+    }
+    return 'NOT SET';
+  };
+
   if (!isEditing) {
     return (
-      <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200 mb-8">
-        <div className="flex justify-between items-center border-b pb-2 mb-4">
-          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-green-600" /> Warranty Information
-          </h3>
+      <div>
+        <div className="flex justify-between items-center mb-3">
+          <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-green-600" /> Warranty Details
+          </h4>
           {canEdit && (
-            <button onClick={() => setIsEditing(true)} className="text-sm text-[#243B36] hover:underline flex items-center gap-1">
-              <Edit2 className="h-3 w-3" /> Edit
+            <button onClick={() => setIsEditing(true)} className="text-xs text-[#243B36] hover:underline flex items-center gap-1 font-semibold">
+              <Edit2 className="h-3 w-3" /> Edit Warranty
             </button>
           )}
         </div>
         
-        <div className="grid grid-cols-2 gap-y-4 gap-x-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-4">
           <div>
-            <p className="text-xs text-gray-500 uppercase font-semibold">Status</p>
+            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Status</p>
             <p className="text-sm font-medium">
               {!charger?.warranty_expiry_date ? (
-                <span className="text-gray-500">NOT SET</span>
+                <span className="text-gray-500 italic">Warranty not set</span>
               ) : new Date(charger.warranty_expiry_date) >= new Date() ? (
                 <span className="text-green-600 font-bold">ACTIVE</span>
               ) : (
@@ -81,15 +101,15 @@ export function WarrantyEditor({ charger, profile, onUpdated }: WarrantyProps) {
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase font-semibold">Duration (Months)</p>
-            <p className="text-sm text-gray-900">{charger?.warranty_months ? `${charger.warranty_months} months` : 'NOT SET'}</p>
+            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Duration</p>
+            <p className="text-sm text-gray-900">{getDisplayMonths()}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase font-semibold">Start Date</p>
+            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Start Date</p>
             <p className="text-sm text-gray-900">{charger?.warranty_start_date ? new Date(charger.warranty_start_date).toLocaleDateString() : 'NOT SET'}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase font-semibold">Expiry Date</p>
+            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Expiry Date</p>
             <p className="text-sm text-gray-900">{charger?.warranty_expiry_date ? new Date(charger.warranty_expiry_date).toLocaleDateString() : 'NOT SET'}</p>
           </div>
         </div>
@@ -98,45 +118,49 @@ export function WarrantyEditor({ charger, profile, onUpdated }: WarrantyProps) {
   }
 
   return (
-    <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200 mb-8">
-      <h3 className="text-lg font-bold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
-        <FileText className="h-4 w-4 text-green-600" /> Edit Warranty
-      </h3>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-green-600" /> Edit Warranty
+        </h4>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs text-gray-500 uppercase font-semibold">Duration (Months)</label>
+            <label className="block text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Duration (Months)</label>
             <input 
               type="number" 
               value={months}
               onChange={(e) => handleMonthsOrStartChange(e.target.value, startDate)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 text-sm"
+              className="block w-full rounded-md border-gray-300 border p-2 text-sm"
               placeholder="e.g. 36"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 uppercase font-semibold">Start Date</label>
+            <label className="block text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Start Date</label>
             <input 
               type="date" 
               value={startDate}
               onChange={(e) => handleMonthsOrStartChange(months, e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 text-sm"
+              className="block w-full rounded-md border-gray-300 border p-2 text-sm"
             />
           </div>
-          <div className="col-span-2">
-            <label className="block text-xs text-gray-500 uppercase font-semibold">Expiry Date (Manual Override)</label>
+          <div>
+            <label className="block text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Expiry Date</label>
             <input 
               type="date" 
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 text-sm"
+              className="block w-full rounded-md border-gray-300 border p-2 text-sm"
             />
-            <p className="text-xs text-gray-400 mt-1">Expiry is auto-calculated based on start date and months, but can be overridden for extensions.</p>
           </div>
         </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={() => setIsEditing(false)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">Cancel</button>
-          <button type="submit" disabled={loading} className="px-3 py-1.5 bg-[#243B36] text-white rounded text-sm disabled:opacity-50">
+        <p className="text-xs text-gray-400">Expiry is auto-calculated based on start date and months, but can be overridden manually.</p>
+        
+        <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
+          <button type="button" onClick={() => setIsEditing(false)} className="px-3 py-1.5 text-sm border rounded-md bg-white">Cancel</button>
+          <button type="submit" disabled={loading} className="px-3 py-1.5 text-sm bg-green-600 text-white font-medium rounded-md hover:bg-green-700">
             {loading ? 'Saving...' : 'Save Warranty'}
           </button>
         </div>

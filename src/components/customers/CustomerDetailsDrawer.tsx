@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { getCustomerDetails } from '@/app/actions/getCustomerDetails';
 import { updateCustomer } from '@/app/actions/entityActions';
-import { X, User, Car, Zap, Wrench, CheckCircle2, Loader2, Edit2, Save, ShieldCheck, ChevronDown, ChevronUp, Image as ImageIcon } from 'lucide-react';
+import { X, User, Car, Zap, Wrench, CheckCircle2, Loader2, Edit2, Save, Image as ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { WarrantyEditor } from './WarrantyEditor';
 import { formatPowerRating } from '@/utils/formatters';
@@ -21,7 +21,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
-  const [expandedInsts, setExpandedInsts] = useState<Record<string, boolean>>({});
+  const [expandedPhotos, setExpandedPhotos] = useState<Record<string, boolean>>({});
 
   // Stop body scroll when drawer is open
   useEffect(() => {
@@ -79,8 +79,8 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
     }
   };
 
-  const toggleInst = (id: string) => {
-    setExpandedInsts(prev => ({ ...prev, [id]: !prev[id] }));
+  const togglePhotos = (id: string) => {
+    setExpandedPhotos(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   // Animation variants
@@ -135,7 +135,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
           <div>
             <h2 className="text-xl font-bold flex items-center gap-2" id="modal-title">
               <User className="h-5 w-5 text-[#D6A84F]" />
-              CUSTOMER PROFILE
+              CUSTOMER DETAILS
             </h2>
             {customer && (
               <p className="text-sm text-gray-300 mt-1 flex items-center gap-2">
@@ -167,320 +167,275 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
               animate="visible"
               className="space-y-6"
             >
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
-                {/* 1. Customer Information */}
-                <motion.div variants={itemVariants} className="bg-white p-6 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100 flex flex-col">
-                  <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
-                    <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                      <User className="h-4 w-4 text-[#D6A84F]" /> 
-                      Personal Information
-                    </h3>
-                    {!isEditingCustomer && canEdit && (
-                      <button onClick={handleEditClick} className="text-gray-400 hover:text-[#243B36] transition-colors p-1">
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                  
-                  {isEditingCustomer ? (
-                    <div className="grid grid-cols-2 gap-y-4 gap-x-4">
-                      <div className="col-span-2">
-                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Full Name</label>
-                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
-                      </div>
-                      <div className="col-span-2 sm:col-span-1">
-                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Phone</label>
-                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} />
-                      </div>
-                      <div className="col-span-2 sm:col-span-1">
-                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Email</label>
-                        <input type="email" className="w-full border rounded-md p-1.5 text-sm" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Full Address</label>
-                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} />
-                      </div>
-                      <div className="col-span-2 sm:col-span-1">
-                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">City</label>
-                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.city} onChange={e => setEditForm({...editForm, city: e.target.value})} />
-                      </div>
-                      <div className="col-span-2 sm:col-span-1">
-                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">State</label>
-                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.state} onChange={e => setEditForm({...editForm, state: e.target.value})} />
-                      </div>
-                      <div className="col-span-2 sm:col-span-1">
-                        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Pincode</label>
-                        <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.pincode} onChange={e => setEditForm({...editForm, pincode: e.target.value})} />
-                      </div>
-                      <div className="col-span-2 mt-4 flex justify-end gap-2 border-t pt-4">
-                        <button onClick={() => setIsEditingCustomer(false)} className="px-3 py-1.5 text-sm border rounded-md">Cancel</button>
-                        <button onClick={handleSaveCustomer} disabled={saving} className="px-3 py-1.5 text-sm bg-[#D6A84F] text-black font-medium rounded-md hover:bg-[#c59844] flex items-center gap-2">
-                          <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save All'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-5 flex-1">
-                      <div className="grid grid-cols-2 gap-y-5 gap-x-4">
-                        <div className="col-span-2 sm:col-span-1">
-                          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Name</p>
-                          <p className="text-sm font-medium text-gray-900">{customer?.name || 'N/A'}</p>
-                        </div>
-                        <div className="col-span-2 sm:col-span-1">
-                          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Customer ID</p>
-                          <p className="text-sm text-gray-900">{customer?.display_id || customer?.customer_id || customer?.id?.slice(0,8).toUpperCase() || 'N/A'}</p>
-                        </div>
-                        <div className="col-span-2 sm:col-span-1">
-                          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Phone</p>
-                          <p className="text-sm text-gray-900">{customer?.phone || 'N/A'}</p>
-                        </div>
-                        <div className="col-span-2 sm:col-span-1">
-                          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Email</p>
-                          <p className="text-sm text-gray-900">{customer?.email || 'N/A'}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="border-t border-gray-100 pt-5 mt-auto">
-                        <div className="grid grid-cols-2 gap-y-5 gap-x-4">
-                          <div className="col-span-2">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Address</p>
-                            <p className="text-sm text-gray-900">{customer?.address || 'N/A'}</p>
-                          </div>
-                          <div className="col-span-2 sm:col-span-1">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">City</p>
-                            <p className="text-sm text-gray-900">{customer?.city || 'N/A'}</p>
-                          </div>
-                          <div className="col-span-2 sm:col-span-1">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">State & Pincode</p>
-                            <p className="text-sm text-gray-900">
-                              {customer?.state ? `${customer.state} ` : 'N/A '} 
-                              {customer?.pincode ? `- ${customer.pincode}` : ''}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-
-                {/* 2. Vehicle Information */}
-                <motion.div variants={itemVariants} className="bg-white p-6 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100">
-                  <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3 mb-4 flex items-center gap-2">
-                    <Car className="h-4 w-4 text-[#243B36]" /> 
-                    Vehicle Information
+              {/* 1. Customer Information */}
+              <motion.div variants={itemVariants} className="bg-white p-6 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100 flex flex-col">
+                <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
+                  <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <User className="h-4 w-4 text-[#D6A84F]" /> 
+                    Personal Information
                   </h3>
-                  {vehicles.length > 0 ? (
-                    <div className="space-y-6">
-                      {vehicles.map((v: any) => (
-                        <div key={v.id} className="grid grid-cols-2 gap-y-5 gap-x-4 border-b border-gray-50 pb-4 last:border-0 last:pb-0">
-                          <div className="col-span-2 sm:col-span-1">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Vehicle Model</p>
-                            <p className="text-sm text-gray-900 font-medium">{v.model || 'N/A'}</p>
-                          </div>
-                          <div className="col-span-2 sm:col-span-1">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">VIN</p>
-                            <p className="text-sm text-gray-900 font-mono bg-gray-50 inline-block px-2 py-0.5 rounded border border-gray-100">{v.vin || 'N/A'}</p>
-                          </div>
-                          <div className="col-span-2 sm:col-span-1">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Sale Date</p>
-                            <p className="text-sm text-gray-900">{v.sale_date ? new Date(v.sale_date).toLocaleDateString() : 'N/A'}</p>
-                          </div>
-                          <div className="col-span-2 sm:col-span-1">
-                            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Dealership</p>
-                            <p className="text-sm text-gray-900">{v.dealer_name || 'N/A'}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center text-gray-500 border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                      <p className="text-sm font-medium">No vehicle assigned</p>
-                    </div>
+                  {!isEditingCustomer && canEdit && (
+                    <button onClick={handleEditClick} className="text-gray-400 hover:text-[#243B36] transition-colors p-1">
+                      <Edit2 className="h-4 w-4" />
+                    </button>
                   )}
-                </motion.div>
+                </div>
                 
-              </div>
-
-              {/* 3. Charger & Warranty Information */}
-              <motion.div variants={itemVariants} className="bg-white p-6 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100">
-                <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3 mb-4 flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-[#243B36]" /> 
-                  Chargers & Warranty
-                </h3>
-                {chargers.length > 0 ? (
-                  <div className="space-y-8">
-                    {chargers.map((c: any) => (
-                      <div key={c.id} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                        <div className="bg-gray-50 p-4 border-b border-gray-200">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-4">
-                            <div className="col-span-2 md:col-span-1">
-                              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Charger Model</p>
-                              <p className="text-sm text-gray-900 font-medium">{c.model || 'N/A'}</p>
-                            </div>
-                            <div className="col-span-2 md:col-span-1">
-                              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Power Rating</p>
-                              <p className="text-sm text-gray-900">{c.power_rating ? formatPowerRating(c.power_rating) : 'N/A'}</p>
-                            </div>
-                            <div className="col-span-2 md:col-span-1">
-                              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Serial Number</p>
-                              <p className="text-sm text-gray-900 font-mono bg-white inline-block px-2 py-0.5 rounded border border-gray-200">{c.serial_number || 'N/A'}</p>
-                            </div>
-                            <div className="col-span-2 md:col-span-1">
-                              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Supplied Date</p>
-                              <p className="text-sm text-gray-900">{c.supplied_date ? new Date(c.supplied_date).toLocaleDateString() : 'N/A'}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="p-4 bg-white">
-                          <WarrantyEditor 
-                            charger={c} 
-                            profile={data?.profile} 
-                            onUpdated={() => {
-                              getCustomerDetails(customerId).then(res => {
-                                if (res.success) setData(res.data);
-                              });
-                            }} 
-                          />
-                        </div>
-                      </div>
-                    ))}
+                {isEditingCustomer ? (
+                  <div className="grid grid-cols-2 gap-y-4 gap-x-4">
+                    <div className="col-span-2">
+                      <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Full Name</label>
+                      <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Phone</label>
+                      <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Email</label>
+                      <input type="email" className="w-full border rounded-md p-1.5 text-sm" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Full Address</label>
+                      <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">City</label>
+                      <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.city} onChange={e => setEditForm({...editForm, city: e.target.value})} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">State</label>
+                      <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.state} onChange={e => setEditForm({...editForm, state: e.target.value})} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1 block">Pincode</label>
+                      <input type="text" className="w-full border rounded-md p-1.5 text-sm" value={editForm.pincode} onChange={e => setEditForm({...editForm, pincode: e.target.value})} />
+                    </div>
+                    <div className="col-span-2 mt-4 flex justify-end gap-2 border-t pt-4">
+                      <button onClick={() => setIsEditingCustomer(false)} className="px-3 py-1.5 text-sm border rounded-md">Cancel</button>
+                      <button onClick={handleSaveCustomer} disabled={saving} className="px-3 py-1.5 text-sm bg-[#D6A84F] text-black font-medium rounded-md hover:bg-[#c59844] flex items-center gap-2">
+                        <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save All'}
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="py-8 text-center text-gray-500 border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                    <p className="text-sm font-medium">No charger assigned</p>
+                  <div className="flex flex-col gap-5 flex-1">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-5 gap-x-4">
+                      <div className="col-span-2 lg:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Name</p>
+                        <p className="text-sm font-medium text-gray-900">{customer?.name || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2 lg:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Customer ID</p>
+                        <p className="text-sm text-gray-900">{customer?.display_id || customer?.customer_id || customer?.id?.slice(0,8).toUpperCase() || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2 lg:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Phone</p>
+                        <p className="text-sm text-gray-900">{customer?.phone || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2 lg:col-span-1">
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Email</p>
+                        <p className="text-sm text-gray-900">{customer?.email || 'N/A'}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-gray-100 pt-5 mt-auto">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-5 gap-x-4">
+                        <div className="col-span-2">
+                          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Address</p>
+                          <p className="text-sm text-gray-900">{customer?.address || 'N/A'}</p>
+                        </div>
+                        <div className="col-span-2 lg:col-span-1">
+                          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">City</p>
+                          <p className="text-sm text-gray-900">{customer?.city || 'N/A'}</p>
+                        </div>
+                        <div className="col-span-2 lg:col-span-1">
+                          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">State & Pincode</p>
+                          <p className="text-sm text-gray-900">
+                            {customer?.state ? `${customer.state} ` : 'N/A '} 
+                            {customer?.pincode ? `- ${customer.pincode}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </motion.div>
 
-              {/* 4. Installation Information */}
-              <motion.div variants={itemVariants} className="bg-white p-6 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100">
-                <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3 mb-4 flex items-center gap-2">
-                  <Wrench className="h-4 w-4 text-[#243B36]" /> 
-                  Installations
-                </h3>
-                
-                {installations.length > 0 ? (
-                  <div className="space-y-4">
-                    {installations.map((inst: any, idx: number) => {
-                      const isExpanded = expandedInsts[inst.id] || installations.length === 1;
-                      
-                      return (
-                        <div key={inst.id} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
-                          <div 
-                            className={`p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-gray-50 transition-colors ${isExpanded ? 'bg-gray-50 border-b border-gray-200' : ''}`}
-                            onClick={() => toggleInst(inst.id)}
-                          >
-                            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
-                              <div>
-                                <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Status</p>
-                                {['VERIFIED', 'COMPLETED'].includes(inst.status) ? (
-                                  <p className="text-sm text-emerald-600 font-medium flex items-center gap-1.5">
-                                    <CheckCircle2 className="h-4 w-4" /> Completed
-                                  </p>
-                                ) : inst.status === 'REVISIT_REQUIRED' ? (
-                                  <p className="text-sm text-red-600 font-medium flex items-center gap-1.5">Revisit Required</p>
-                                ) : (
-                                  <p className="text-sm text-blue-600 font-medium">{formatStatus(inst.status)}</p>
-                                )}
+              {/* 2. Vehicles List (Includes Chargers & Installations) */}
+              <div className="space-y-6">
+                <h3 className="text-lg font-bold text-gray-900 px-1 pt-2">Vehicles & Assets</h3>
+                {vehicles.length > 0 ? (
+                  vehicles.map((v: any, index: number) => {
+                    const charger = chargers.find((c: any) => c.vehicle_id === v.id);
+                    // Find installation tied to this vehicle, or fallback to charger association
+                    const insts = installations.filter((i: any) => i.vehicle_id === v.id || (charger && i.charger_id === charger.id));
+                    
+                    return (
+                      <motion.div key={v.id} variants={itemVariants} className="bg-white rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden">
+                        
+                        {/* Vehicle Header */}
+                        <div className="bg-gray-50 border-b border-gray-200 p-5">
+                          <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4">
+                            <Car className="h-4 w-4 text-[#243B36]" /> Vehicle #{index + 1}
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-4">
+                            <div>
+                              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Model</p>
+                              <p className="text-sm text-gray-900 font-medium">{v.model || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">VIN</p>
+                              <p className="text-sm text-gray-900 font-mono bg-white inline-block px-2 py-0.5 rounded border border-gray-200">{v.vin || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Sale Date</p>
+                              <p className="text-sm text-gray-900">{v.sale_date ? new Date(v.sale_date).toLocaleDateString() : 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Dealership</p>
+                              <p className="text-sm text-gray-900">{v.dealer_name || 'N/A'}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Charger Sub-section */}
+                        <div className="p-5 border-b border-gray-100">
+                          <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4">
+                            <Zap className="h-4 w-4 text-[#D6A84F]" /> Associated Charger
+                          </h4>
+                          {charger ? (
+                            <div className="space-y-5">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-4">
+                                <div>
+                                  <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Model</p>
+                                  <p className="text-sm text-gray-900 font-medium">{charger.model || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Power Rating</p>
+                                  <p className="text-sm text-gray-900">{charger.power_rating ? formatPowerRating(charger.power_rating) : 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Serial Number</p>
+                                  <p className="text-sm text-gray-900 font-mono bg-gray-50 inline-block px-2 py-0.5 rounded border border-gray-100">{charger.serial_number || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Supplied Date</p>
+                                  <p className="text-sm text-gray-900">{charger.supplied_date ? new Date(charger.supplied_date).toLocaleDateString() : 'N/A'}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Scheduled Date</p>
-                                <p className="text-sm text-gray-900">{inst.scheduled_date ? new Date(inst.scheduled_date).toLocaleDateString() : 'Not Scheduled'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Category</p>
-                                <p className="text-sm text-gray-900">{formatStatus(inst.category) || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Partner</p>
-                                <p className="text-sm text-gray-900">{inst.partner_name || 'Unassigned'}</p>
+                              
+                              {/* Integrated Warranty Editor */}
+                              <div className="mt-4 pt-4 border-t border-gray-50">
+                                <WarrantyEditor 
+                                  charger={charger} 
+                                  profile={data?.profile} 
+                                  onUpdated={() => {
+                                    getCustomerDetails(customerId).then(res => {
+                                      if (res.success) setData(res.data);
+                                    });
+                                  }} 
+                                />
                               </div>
                             </div>
-                            {installations.length > 1 && (
-                              <button className="text-gray-400 p-2 hover:bg-gray-200 rounded-full transition-colors self-end md:self-auto">
-                                {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                              </button>
-                            )}
-                          </div>
-                          
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div 
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="p-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  
-                                  <div className="space-y-4">
-                                    <div>
-                                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Technician</p>
-                                      <p className="text-sm text-gray-900">{inst.technician_name || 'Unassigned'}</p>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">No charger assigned</p>
+                          )}
+                        </div>
+
+                        {/* Installation Sub-section */}
+                        <div className="p-5">
+                          <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4">
+                            <Wrench className="h-4 w-4 text-[#243B36]" /> Installation Status
+                          </h4>
+                          {insts && insts.length > 0 ? (
+                            <div className="space-y-4">
+                              {insts.map((inst: any) => {
+                                const showPhotos = expandedPhotos[inst.id];
+                                return (
+                                  <div key={inst.id} className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-4">
+                                      <div>
+                                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Status</p>
+                                        {['VERIFIED', 'COMPLETED'].includes(inst.status) ? (
+                                          <p className="text-sm text-emerald-600 font-medium flex items-center gap-1.5">
+                                            <CheckCircle2 className="h-4 w-4" /> Completed
+                                          </p>
+                                        ) : inst.status === 'REVISIT_REQUIRED' ? (
+                                          <p className="text-sm text-red-600 font-medium">Revisit Required</p>
+                                        ) : (
+                                          <p className="text-sm text-blue-600 font-medium">{formatStatus(inst.status)}</p>
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Scheduled</p>
+                                        <p className="text-sm text-gray-900">{inst.scheduled_date ? new Date(inst.scheduled_date).toLocaleDateString() : 'Pending'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Category</p>
+                                        <p className="text-sm text-gray-900">{formatStatus(inst.category) || 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Partner</p>
+                                        <p className="text-sm text-gray-900">{inst.partner_name || 'Unassigned'}</p>
+                                      </div>
                                     </div>
                                     
-                                    {inst.completed_at && (
-                                      <div>
-                                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Completion Date</p>
-                                        <p className="text-sm text-gray-900">{new Date(inst.completed_at).toLocaleDateString()}</p>
-                                      </div>
-                                    )}
-                                    
-                                    {inst.remarks && (
-                                      <div>
-                                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Order Remarks</p>
-                                        <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded border border-gray-100">{inst.remarks}</p>
-                                      </div>
-                                    )}
-                                    
-                                    {inst.rejection_reason && (
-                                      <div className="p-3 bg-red-50 rounded border border-red-100">
-                                        <p className="text-[11px] text-red-800 uppercase tracking-wider font-semibold mb-1">Revisit Reason</p>
-                                        <p className="text-sm text-red-900">{inst.rejection_reason}</p>
+                                    {inst.photos && inst.photos.length > 0 && (
+                                      <div className="mt-4 pt-3 border-t border-gray-200">
+                                        <button 
+                                          onClick={() => togglePhotos(inst.id)}
+                                          className="text-xs font-semibold text-[#243B36] flex items-center gap-1 hover:underline"
+                                        >
+                                          <ImageIcon className="h-3 w-3" /> 
+                                          {showPhotos ? 'Hide Photos' : `View Photos (${inst.photos.length})`}
+                                        </button>
+                                        
+                                        <AnimatePresence>
+                                          {showPhotos && (
+                                            <motion.div 
+                                              initial={{ height: 0, opacity: 0 }}
+                                              animate={{ height: 'auto', opacity: 1 }}
+                                              exit={{ height: 0, opacity: 0 }}
+                                              className="overflow-hidden mt-3"
+                                            >
+                                              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                                {inst.photos.map((photo: any) => (
+                                                  <div key={photo.id} className="group relative aspect-square bg-gray-100 rounded border border-gray-200 overflow-hidden">
+                                                    {photo.url ? (
+                                                      <Image src={photo.url} alt={photo.category} fill className="object-cover transition-transform group-hover:scale-105" unoptimized />
+                                                    ) : (
+                                                      <div className="flex items-center justify-center h-full text-[10px] text-gray-400">N/A</div>
+                                                    )}
+                                                    <div className="absolute inset-x-0 bottom-0 bg-black/70 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                      <p className="text-[9px] text-white text-center truncate">{photo.category.replace(/_/g, ' ')}</p>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </motion.div>
+                                          )}
+                                        </AnimatePresence>
                                       </div>
                                     )}
                                   </div>
-                                  
-                                  <div>
-                                    <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-3 flex items-center gap-1.5">
-                                      <ImageIcon className="h-3 w-3" /> Evidence Photos
-                                    </p>
-                                    {inst.photos && inst.photos.length > 0 ? (
-                                      <div className="grid grid-cols-3 gap-2">
-                                        {inst.photos.map((photo: any) => (
-                                          <div key={photo.id} className="group relative aspect-square bg-gray-100 rounded border border-gray-200 overflow-hidden">
-                                            {photo.url ? (
-                                              <Image src={photo.url} alt={photo.category} fill className="object-cover transition-transform group-hover:scale-105" unoptimized />
-                                            ) : (
-                                              <div className="flex items-center justify-center h-full text-[10px] text-gray-400">N/A</div>
-                                            )}
-                                            <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                              <p className="text-[9px] text-white text-center truncate">{photo.category.replace(/_/g, ' ')}</p>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <p className="text-sm text-gray-400 italic">No photos uploaded.</p>
-                                    )}
-                                  </div>
-                                  
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">Installation not created</p>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
+                      </motion.div>
+                    );
+                  })
                 ) : (
-                  <div className="py-8 text-center text-gray-500 border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                    <p className="text-sm font-medium">No installation recorded yet</p>
-                  </div>
+                  <motion.div variants={itemVariants} className="py-12 text-center text-gray-500 border border-dashed border-gray-200 rounded-xl bg-gray-50">
+                    <Car className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                    <p className="text-sm font-medium">No vehicles registered to this customer.</p>
+                  </motion.div>
                 )}
-              </motion.div>
+              </div>
 
             </motion.div>
           )}
