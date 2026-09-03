@@ -63,7 +63,7 @@ function Modal({ isOpen, onClose, title, children }: ModalProps) {
 import { createCustomer, createVehicle, createCharger } from '@/app/actions/entityActions';
 import { createClient } from '@/utils/supabase/client';
 
-export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[] }) {
+export function AddEntityButton({ page, oems = [], userRole }: { page: string, oems?: any[], userRole?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [options, setOptions] = useState<{dealers: any[], customers: any[], installations: any[], vehicles: any[]}>({ dealers: [], customers: [], installations: [], vehicles: [] });
@@ -213,8 +213,8 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
           {page === 'customers' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Name *</label>
-                <input required type="text" name="name" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                <label className="block text-sm font-medium text-gray-700">{(page as string) === "dealerships" ? "Dealership Name *" : "Name *"}</label>
+                <input required type="text" name="name" placeholder={(page as string) === "dealerships" ? "Enter dealership name" : ""} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Phone *</label>
@@ -352,7 +352,7 @@ export function AddEntityButton({ page, oems = [] }: { page: string, oems?: any[
 
 import { updateVehicle, updateCharger } from '@/app/actions/entityActions';
 
-export function RowActions({ item, page, oems = [] }: { item: any, page: string, oems?: any[] }) {
+export function RowActions({ item, page, oems = [], userRole }: { item: any, page: string, oems?: any[], userRole?: string }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

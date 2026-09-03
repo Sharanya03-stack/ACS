@@ -146,7 +146,7 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
           <p className="mt-1 text-sm text-gray-500">View and manage {title.toLowerCase()} in the system.</p>
         </div>
         {!(role === 'admin' && page === 'technicians') && (
-          <AddEntityButton page={page} oems={parentOrgs} />
+          <AddEntityButton page={page} oems={parentOrgs} userRole={role} />
         )}
       </div>
 
@@ -183,7 +183,7 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
                             {item[col.key]}
                           </span>
                         ) : col.key === 'actions' ? (
-                          <RowActions page={page} item={item} oems={parentOrgs} />
+                          <RowActions page={page} item={item} oems={parentOrgs} userRole={role} />
                         ) : (page === 'customers' && col.key === 'name') ? (
                           <CustomerNameCell id={item.id} name={item[col.key]} city={item.city} />
                         ) : col.key === 'customerName' ? (
