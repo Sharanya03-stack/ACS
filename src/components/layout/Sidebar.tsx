@@ -47,7 +47,6 @@ const NAVIGATION_ITEMS: Record<Role, { name: string; href: string; icon: any }[]
   ],
   DEALER: [
     { name: 'Dashboard', href: '/dealer/dashboard', icon: LayoutDashboard },
-    { name: 'Vehicle Sales', href: '/dealer/sales', icon: Car },
     { name: 'Customers', href: '/dealer/customers', icon: Users },
     { name: 'Installation Requests', href: '/dealer/requests', icon: BatteryCharging },
     { name: 'Installations', href: '/dealer/installations', icon: CheckCircle },
