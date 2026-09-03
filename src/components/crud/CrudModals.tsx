@@ -253,6 +253,11 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
           {/* Vehicles */}
           {page === 'vehicles' && (
             <>
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <p className="text-sm text-yellow-700">
+                  <strong>Notice:</strong> This form creates an unassigned vehicle (e.g. Dealership Inventory). To register a vehicle to a specific customer, please use the <strong>New Vehicle Sale</strong> workflow instead.
+                </p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">VIN *</label>
                 <input required type="text" name="vin" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
@@ -260,20 +265,6 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
               <div>
                 <label className="block text-sm font-medium text-gray-700">Model *</label>
                 <input required type="text" name="model" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Customer</label>
-                <select name="customerId" value={selectedCustomerId} onChange={handleCustomerChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
-                  <option value="">Select Customer...</option>
-                  {filteredCustomers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Dealer (if Admin/OEM)</label>
-                <select name="dealerId" value={selectedDealerId} onChange={e => setSelectedDealerId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
-                  <option value="">Select Dealer...</option>
-                  {options.dealers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
               </div>
             </>
           )}
@@ -287,33 +278,21 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Model *</label>
-                <input required type="text" name="model" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                <input required type="text" name="model" defaultValue="3.3kW Homebox Charging Kit" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Power Rating (kW) *</label>
-                <input required type="number" step="0.1" name="power_rating" defaultValue="7.4" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                <input required type="number" step="0.1" name="power_rating" defaultValue="3.3" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Supplied Date *</label>
                 <input required type="date" name="supplied_date" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Customer *</label>
-                <select required name="customerId" value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
-                  <option value="">Select Customer...</option>
-                  {options.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700">Vehicle *</label>
-                <select required name="vehicleId" onChange={(e) => {
-                  const selectedVehicle = options.vehicles.find(v => v.id === e.target.value);
-                  if (selectedVehicle && selectedVehicle.customer_id) setSelectedCustomerId(selectedVehicle.customer_id);
-                }} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                <select required name="vehicleId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
                   <option value="">Select Vehicle...</option>
-                  {options.vehicles
-                    .filter(v => !selectedCustomerId || v.customer_id === selectedCustomerId)
-                    .map(v => <option key={v.id} value={v.id}>{v.vin} - {v.model}</option>)}
+                  {options.vehicles.map(v => <option key={v.id} value={v.id}>{v.vin} - {v.model}</option>)}
                 </select>
               </div>
               <div className="pt-2">
@@ -321,7 +300,7 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Warranty Months</label>
-                <input type="number" name="warranty_months" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                <input type="number" name="warranty_months" defaultValue="12" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Start Date</label>

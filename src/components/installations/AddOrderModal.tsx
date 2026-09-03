@@ -382,16 +382,20 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                     <form onSubmit={handleCreateCharger} className="space-y-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Charger Model</label>
-                        <input type="text" name="model" required className="w-full border rounded-md p-2 text-sm bg-white" placeholder="e.g. Wallbox Plus" />
+                        <input type="text" name="model" required defaultValue="3.3kW Homebox Charging Kit" className="w-full border rounded-md p-2 text-sm bg-white" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Serial Number</label>
                         <input type="text" name="serial_number" required className="w-full border rounded-md p-2 text-sm bg-white" placeholder="e.g. CHG-3333" />
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Power Rating</label>
-                        <input type="text" value="3.3 kW" disabled className="w-full border rounded-md p-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed font-medium" />
-                      </div>
+                                              <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Power Rating</label>
+                          <input type="text" value="3.3 kW" disabled className="w-full border rounded-md p-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed font-medium" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Warranty Months</label>
+                          <input type="number" name="warranty_months" defaultValue="12" className="w-full border rounded-md p-2 text-sm bg-white" />
+                        </div>
                       <div className="flex justify-end gap-2 pt-2">
                         <button type="button" onClick={() => setIsCreatingCharger(false)} className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border hover:bg-gray-100 rounded">Cancel</button>
                         <button type="submit" disabled={creatingChargerLoading} className="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-black rounded flex items-center gap-2">
