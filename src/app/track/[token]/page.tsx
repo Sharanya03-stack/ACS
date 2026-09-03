@@ -150,7 +150,7 @@ export default async function PublicTrackingPage({
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center">
-            <Image src="/logo.png" alt="ACS ENERGY Logo" width={140} height={40} className="object-contain" priority />
+            <Image src="/logo.png" alt="ACS ENERGY Logo" width={108} height={53} className="object-contain" priority unoptimized />
           </div>
           <div className="text-sm font-medium text-gray-500">
             Order Tracking

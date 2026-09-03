@@ -22,13 +22,13 @@ export default async function AdminDashboard() {
     { count: revisitRequired },
     { count: underVerification }
   ] = await Promise.all([
-    supabase.from('organizations').select('id, name, status, contact_email, contact_phone').eq('type', 'OEM'),
-    supabase.from('organizations').select('id, name, status, contact_email, contact_phone, parent_org:organizations!parent_org_id(name)').eq('type', 'DEALER'),
-    supabase.from('organizations').select('id, name, status, contact_email, contact_phone, address').eq('type', 'PARTNER'),
-    supabase.from('profiles').select('id, name, status, phone, address, organization:organizations!org_id(name)').eq('role', 'TECHNICIAN'),
+    supabase.from('organizations').select('id, name, status, contact_email, contact_phone').eq('type', 'OEM').eq('status', 'ACTIVE'),
+    supabase.from('organizations').select('id, name, status, contact_email, contact_phone, parent_org:organizations!parent_org_id(name)').eq('type', 'DEALER').eq('status', 'ACTIVE'),
+    supabase.from('organizations').select('id, name, status, contact_email, contact_phone, address').eq('type', 'PARTNER').eq('status', 'ACTIVE'),
+    supabase.from('profiles').select('id, name, status, phone, address, organization:organizations!org_id(name)').eq('role', 'TECHNICIAN').eq('status', 'ACTIVE'),
     supabase.from('vehicles').select('*', { count: 'exact', head: true }),
     supabase.from('chargers').select('*', { count: 'exact', head: true }),
-    supabase.from('installations').select('*', { count: 'exact', head: true }).not('status', 'in', '("COMPLETED","VERIFIED","CANCELLED","FAILED")'),
+    supabase.from('installations').select('*', { count: 'exact', head: true }).in('status', ['NEW', 'PENDING_DEALER', 'PENDING_PARTNER']),
     supabase.from('installations').select('*', { count: 'exact', head: true }).in('status', ['COMPLETED', 'VERIFIED']),
     supabase.from('installations').select('*', { count: 'exact', head: true }).eq('status', 'REVISIT_REQUIRED'),
     supabase.from('installations').select('*', { count: 'exact', head: true }).eq('status', 'UNDER_VERIFICATION'),
@@ -60,12 +60,12 @@ export default async function AdminDashboard() {
         technicians={technicians || []}
       />
 
-      <h2 className="text-lg font-bold text-gray-900 mb-4">Installation Pipeline</h2>
+      <h2 className="text-xl font-bold text-gray-900 border-b border-gray-200 pb-2 mb-6 mt-8">Installation Pipeline</h2>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Link href="/admin/requests" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-all rounded-xl border border-gray-100 p-5 relative group block">
+        <Link href="/admin/requests" className="bg-white overflow-hidden shadow-md hover:shadow-lg hover:border-gray-300 transition-all rounded-xl border border-gray-200 p-5 relative group block">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><BatteryCharging size={64}/></div>
-          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Pending Jobs</dt>
+          <dt className="text-sm font-semibold text-gray-600 tracking-wide uppercase truncate group-hover:text-acs-primary transition-colors">Pending Jobs</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900"><AnimatedCounter value={metrics.pendingInstallations} /></dd>
           <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -73,8 +73,8 @@ export default async function AdminDashboard() {
             </svg>
           </div>
         </Link>
-        <Link href="/admin/completed" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-all rounded-xl border border-yellow-200 p-5 bg-gradient-to-br from-yellow-50 to-white relative group block">
-          <dt className="text-sm font-medium text-yellow-800 truncate group-hover:text-yellow-900 transition-colors">Needs Verification</dt>
+        <Link href="/admin/completed" className="bg-white overflow-hidden shadow-md hover:shadow-lg hover:border-yellow-300 transition-all rounded-xl border border-yellow-200 p-5 bg-gradient-to-br from-yellow-50 to-white relative group block">
+          <dt className="text-sm font-semibold text-yellow-800 tracking-wide uppercase truncate group-hover:text-yellow-900 transition-colors">Needs Verification</dt>
           <dd className="mt-1 text-3xl font-semibold text-yellow-600"><AnimatedCounter value={metrics.underVerification} /></dd>
           <div className="absolute top-5 right-5 text-yellow-400 group-hover:text-yellow-600">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -82,8 +82,8 @@ export default async function AdminDashboard() {
             </svg>
           </div>
         </Link>
-        <Link href="/admin/completed" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-all rounded-xl border border-green-200 p-5 bg-gradient-to-br from-green-50 to-white relative group block">
-          <dt className="text-sm font-medium text-green-800 truncate group-hover:text-green-900 transition-colors">Completed & Verified</dt>
+        <Link href="/admin/completed" className="bg-white overflow-hidden shadow-md hover:shadow-lg hover:border-green-300 transition-all rounded-xl border border-green-200 p-5 bg-gradient-to-br from-green-50 to-white relative group block">
+          <dt className="text-sm font-semibold text-green-800 tracking-wide uppercase truncate group-hover:text-green-900 transition-colors">Completed & Verified</dt>
           <dd className="mt-1 text-3xl font-semibold text-green-600"><AnimatedCounter value={metrics.completedInstallations} /></dd>
           <div className="absolute top-5 right-5 text-green-400 group-hover:text-green-600">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,8 +91,8 @@ export default async function AdminDashboard() {
             </svg>
           </div>
         </Link>
-        <Link href="/admin/revisits" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-all rounded-xl border border-red-200 p-5 bg-gradient-to-br from-red-50 to-white relative group block">
-          <dt className="text-sm font-medium text-red-800 truncate group-hover:text-red-900 transition-colors">Revisit Required</dt>
+        <Link href="/admin/revisits" className="bg-white overflow-hidden shadow-md hover:shadow-lg hover:border-red-300 transition-all rounded-xl border border-red-200 p-5 bg-gradient-to-br from-red-50 to-white relative group block">
+          <dt className="text-sm font-semibold text-red-800 tracking-wide uppercase truncate group-hover:text-red-900 transition-colors">Revisit Required</dt>
           <dd className="mt-1 text-3xl font-semibold text-red-600"><AnimatedCounter value={metrics.revisitRequired} /></dd>
           <div className="absolute top-5 right-5 text-red-400 group-hover:text-red-600">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

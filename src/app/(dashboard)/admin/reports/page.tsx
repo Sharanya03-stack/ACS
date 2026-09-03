@@ -1,120 +1,53 @@
 import React from 'react';
 import { createClient } from '@/utils/supabase/server';
-import { TrendingUp, Users, Zap, CheckCircle } from 'lucide-react';
-import { ExportCSVButton } from './ExportCSVButton';
+import { getInstallations } from '@/utils/queries';
+import { ReportsClient } from './ReportsClient';
 
-export default async function ReportsPage() {
+export default async function ReportsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient();
+  const params = await searchParams;
+
+  const search = typeof params.search === 'string' ? params.search : undefined;
+  const status = typeof params.status === 'string' ? params.status : undefined;
+  const category = typeof params.category === 'string' ? params.category : undefined;
+  const oem_id = typeof params.oem_id === 'string' ? params.oem_id : undefined;
+  const dealer_id = typeof params.dealer_id === 'string' ? params.dealer_id : undefined;
+  const partner_id = typeof params.partner_id === 'string' ? params.partner_id : undefined;
+  const technician_id = typeof params.technician_id === 'string' ? params.technician_id : undefined;
 
   const [
-    { data: installations },
+    { data: installations, count },
+    { data: organizations },
+    { data: profiles },
     { count: totalCustomers }
   ] = await Promise.all([
-    supabase.from('installations').select('*'),
+    getInstallations(supabase, { page: 1, limit: 5000, search, status, category, oem_id, dealer_id, partner_id, technician_id }),
+    supabase.from('organizations').select('id, name, type'),
+    supabase.from('profiles').select('id, name, role, org_id, status'),
     supabase.from('customers').select('*', { count: 'exact', head: true })
   ]);
 
   const installs = installations || [];
-  
-  const completedInstalls = installs.filter(i => ['VERIFIED', 'COMPLETED'].includes(i.status)).length;
-  const inProgressInstalls = installs.filter(i => ['IN_PROGRESS', 'UNDER_VERIFICATION', 'REVISIT_REQUIRED'].includes(i.status)).length;
-  const newInstalls = installs.filter(i => ['NEW', 'PARTNER_ASSIGNED', 'TECHNICIAN_ASSIGNED'].includes(i.status)).length;
-  
-  const successRate = installs.length ? Math.round((completedInstalls / installs.length) * 100) : 0;
+  const orgs = organizations || [];
+  const profs = profiles || [];
+
+  const oems = orgs.filter(o => o.type === 'OEM');
+  const dealers = orgs.filter(o => o.type === 'DEALER');
+  const partners = orgs.filter(o => o.type === 'PARTNER');
+  const technicians = profs.filter(p => p.role === 'TECHNICIAN');
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics & Reports</h1>
-          <p className="mt-1 text-sm text-gray-500">Monitor installation performance and export data.</p>
-        </div>
-        <div className="mt-4 sm:mt-0">
-          {/* We must cast to any or map the DB type to match the frontend type closely enough for the CSV export, or modify ExportCSVButton to take any array */}
-          <ExportCSVButton installations={installs as any} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <div className="bg-white overflow-hidden shadow rounded-lg border border-gray-200">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <CheckCircle className="h-6 w-6 text-green-500" aria-hidden="true" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Completed Installations</dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{completedInstalls}</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg border border-gray-200">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Zap className="h-6 w-6 text-yellow-500" aria-hidden="true" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Active In-Progress</dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{inProgressInstalls}</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg border border-gray-200">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <TrendingUp className="h-6 w-6 text-blue-500" aria-hidden="true" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{successRate}%</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg border border-gray-200">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Users className="h-6 w-6 text-purple-500" aria-hidden="true" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Customers</dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{totalCustomers || 0}</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200 p-6 flex items-center justify-center h-64">
-        <div className="text-center">
-          <p className="text-gray-500 mb-2">Detailed charts and graphs will appear here.</p>
-          <p className="text-xs text-gray-400">Data visualization library integration pending Phase 5.</p>
-        </div>
-      </div>
-    </div>
+    <ReportsClient 
+      installations={installs}
+      totalCustomers={totalCustomers || 0}
+      oems={oems}
+      dealers={dealers}
+      partners={partners}
+      technicians={technicians}
+    />
   );
 }

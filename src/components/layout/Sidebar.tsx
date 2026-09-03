@@ -83,7 +83,7 @@ export function Sidebar({ user }: { user: DashboardUser }) {
   return (
     <div className="flex flex-col w-64 bg-[#0a0a0a] border-r border-[#1a1a1a] min-h-screen text-white">
       <div className="flex items-center justify-center h-16 border-b border-white/10">
-        <Image src="/logo.png" alt="ACS ENERGY" width={160} height={45} className="object-contain" priority />
+        <Image src="/logo.png" alt="ACS ENERGY" width={108} height={53} className="object-contain" priority unoptimized />
       </div>
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="px-2 space-y-1">

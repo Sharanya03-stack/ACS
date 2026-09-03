@@ -150,13 +150,13 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
         )}
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
+      <div className="bg-white shadow-md rounded-xl overflow-hidden border border-gray-200">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50/80 border-b border-gray-200">
               <tr>
                 {columns.map(col => (
-                  <th key={col.key} scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th key={col.key} scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     {col.label}
                   </th>
                 ))}

@@ -8,6 +8,8 @@ import toast from 'react-hot-toast';
 import { formatPowerRating } from '@/utils/formatters';
 import Image from 'next/image';
 import { InstallationNotes } from './InstallationNotes';
+import { downloadCSV } from '@/utils/csv';
+import { Download } from 'lucide-react';
 import { EvidenceManager } from '@/components/installations/EvidenceManager';
 
 interface ReviewDrawerProps {
@@ -304,7 +306,10 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
 
                 {/* Timeline Events */}
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Event Timeline</h3>
+                  <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-medium text-gray-900">Event Timeline</h3>
+                        <button onClick={() => downloadCSV(`installation-timeline-${details?.id}.csv`, ['Date', 'Time', 'Event', 'Actor', 'Role', 'Details'], events.map(e => [new Date(e.created_at).toLocaleDateString(), new Date(e.created_at).toLocaleTimeString(), getEventTitle(e), e.actor?.name || 'System', e.actor?.role || 'System', getEventDetails(e) || '']))} className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#243B36]"><Download className="mr-1.5 h-3.5 w-3.5 text-gray-500" />Export CSV</button>
+                      </div>
                   {events.length > 0 ? (
                     <div className="flow-root">
                       <ul role="list" className="-mb-8">

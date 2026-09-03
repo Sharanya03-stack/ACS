@@ -24,6 +24,8 @@ interface Props {
 }
 
 import { AddOrderButton } from '@/components/installations/AddOrderButton';
+import { downloadCSV } from '@/utils/csv';
+import { Download } from 'lucide-react';
 
 export function AdminInstallationsClient({ initialInstallations, totalCount, oems, dealers, partners, technicians }: Props) {
   const router = useRouter();
@@ -208,10 +210,6 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
     setIsAssigningTech(false);
   };
 
-  const handleExport = async (params: any) => {
-    // We will hook this up to the server action shortly
-  };
-
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 relative">
       
@@ -237,7 +235,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
         dealers={dealers}
         partners={partners}
         technicians={technicians}
-        onExport={handleExport}
+        
       />
 
       <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
@@ -508,7 +506,10 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
 
                     {/* Timeline Events */}
                     <div className="mt-8 border-t pt-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-6">Event Timeline</h3>
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-lg font-medium text-gray-900">Event Timeline</h3>
+                        <button onClick={() => downloadCSV(`installation-timeline-${selectedInst?.id}.csv`, ['Date', 'Time', 'Event', 'Actor', 'Role', 'Details'], events.map(e => [new Date(e.created_at).toLocaleDateString(), new Date(e.created_at).toLocaleTimeString(), getEventTitle(e), e.actor?.name || 'System', e.actor?.role || 'System', getEventDetails(e) || '']))} className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#243B36]"><Download className="mr-1.5 h-3.5 w-3.5 text-gray-500" />Export CSV</button>
+                      </div>
                       {isLoadingDetails ? (
                         <div className="text-sm text-gray-500">Loading events...</div>
                       ) : events.length > 0 ? (

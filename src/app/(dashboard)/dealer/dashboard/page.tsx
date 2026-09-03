@@ -11,6 +11,10 @@ export default async function DealerDashboard() {
   if (!user) {
     redirect('/login');
   }
+  const { data: profile } = await supabase.from('profiles').select('role, org_id').eq('id', user.id).single();
+  if (!profile || profile.role !== 'DEALER') {
+    redirect('/login');
+  }
 
   // The RLS policies ensure the dealer can only see their own installations and vehicles.
   // We can just query without client-side filters.
@@ -21,9 +25,9 @@ export default async function DealerDashboard() {
     { count: pendingInstallations },
     { count: completedInstallations }
   ] = await Promise.all([
-    supabase.from('vehicles').select('*', { count: 'exact', head: true }),
-    supabase.from('installations').select('*', { count: 'exact', head: true }).not('status', 'in', '("COMPLETED","VERIFIED","CANCELLED","FAILED")'),
-    supabase.from('installations').select('*', { count: 'exact', head: true }).in('status', ['COMPLETED', 'VERIFIED'])
+    supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('dealer_id', profile.org_id),
+    supabase.from('installations').select('*', { count: 'exact', head: true }).eq('dealer_id', profile.org_id).in('status', ['PENDING_PARTNER', 'SCHEDULED', 'IN_PROGRESS']),
+    supabase.from('installations').select('*', { count: 'exact', head: true }).eq('dealer_id', profile.org_id).in('status', ['COMPLETED', 'VERIFIED', 'UNDER_VERIFICATION'])
   ]);
 
   return (
@@ -45,8 +49,8 @@ export default async function DealerDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
-        <Link href="/dealer/vehicles" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow rounded-lg border border-gray-200 p-5 group relative block">
-          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Total EV Sales</dt>
+        <Link href="/dealer/vehicles" className="bg-white overflow-hidden shadow-md hover:shadow-lg transition-all rounded-xl border border-gray-200 hover:border-gray-300 p-5 group relative block">
+          <dt className="text-sm font-semibold text-gray-600 tracking-wide uppercase truncate group-hover:text-acs-primary transition-colors">Total EV Sales</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{totalSales || 0}</dd>
           <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -54,8 +58,8 @@ export default async function DealerDashboard() {
             </svg>
           </div>
         </Link>
-        <Link href="/dealer/active" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow rounded-lg border border-gray-200 p-5 group relative block">
-          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Pending Installations</dt>
+        <Link href="/dealer/active" className="bg-white overflow-hidden shadow-md hover:shadow-lg transition-all rounded-xl border border-gray-200 hover:border-gray-300 p-5 group relative block">
+          <dt className="text-sm font-semibold text-gray-600 tracking-wide uppercase truncate group-hover:text-acs-primary transition-colors">Pending Installations</dt>
           <dd className="mt-1 text-3xl font-semibold text-acs-accent">{pendingInstallations || 0}</dd>
           <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -63,8 +67,8 @@ export default async function DealerDashboard() {
             </svg>
           </div>
         </Link>
-        <Link href="/dealer/completed" className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow rounded-lg border border-gray-200 p-5 group relative block">
-          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Completed Installations</dt>
+        <Link href="/dealer/completed" className="bg-white overflow-hidden shadow-md hover:shadow-lg transition-all rounded-xl border border-gray-200 hover:border-gray-300 p-5 group relative block">
+          <dt className="text-sm font-semibold text-gray-600 tracking-wide uppercase truncate group-hover:text-acs-primary transition-colors">Completed Installations</dt>
           <dd className="mt-1 text-3xl font-semibold text-green-600">{completedInstallations || 0}</dd>
           <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

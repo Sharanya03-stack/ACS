@@ -205,7 +205,7 @@ export default function LoginPage() {
         className="sm:mx-auto sm:w-full sm:max-w-md relative z-10"
       >
           <div className="flex justify-center mb-4">
-            <Image src="/logo.png" alt="ACS ENERGY Logo" width={220} height={60} className="mx-auto drop-shadow-sm" />
+            <Image src="/logo.png" alt="ACS ENERGY Logo" width={108} height={53} className="mx-auto" unoptimized />
           </div>
         <h2 className="mt-2 text-center text-sm font-medium text-gray-600 uppercase tracking-widest">
           EV Charger Installation Platform

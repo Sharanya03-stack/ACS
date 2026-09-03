@@ -173,12 +173,12 @@ export function InteractiveMetricCards({ oems, dealerships, partners, technician
           whileHover={{ scale: 1.01, y: -2 }}
           whileTap={{ scale: 0.99 }}
           onClick={() => setActiveModal('OEM')}
-          className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-all rounded-xl border border-gray-100 p-5 border-l-4 border-l-[#243B36] cursor-pointer group relative"
+          className="bg-white overflow-hidden shadow-md hover:shadow-lg hover:border-gray-300 transition-all rounded-xl border border-gray-200 p-5 border-l-4 border-l-acs-primary cursor-pointer group relative"
         >
           <div className="flex justify-between items-start">
             <div>
-              <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-gray-700 transition-colors">Total OEMs</dt>
-              <dd className="mt-1 text-3xl font-semibold text-gray-900"><AnimatedCounter value={oems.length} /></dd>
+              <dt className="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-[#243B36] transition-colors mb-1 block">Total OEMs</dt>
+              <dd className="text-4xl font-extrabold text-gray-900"><AnimatedCounter value={oems.length} /></dd>
             </div>
             <div className="bg-gray-50 p-2 rounded-lg group-hover:bg-[#243B36]/5 transition-colors">
               <Building2 className="h-5 w-5 text-gray-400 group-hover:text-[#243B36] transition-colors" />
@@ -194,12 +194,12 @@ export function InteractiveMetricCards({ oems, dealerships, partners, technician
           whileHover={{ scale: 1.01, y: -2 }}
           whileTap={{ scale: 0.99 }}
           onClick={() => setActiveModal('DEALER')}
-          className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-all rounded-xl border border-gray-100 p-5 border-l-4 border-l-[#243B36] cursor-pointer group relative"
+          className="bg-white overflow-hidden shadow-md hover:shadow-lg hover:border-gray-300 transition-all rounded-xl border border-gray-200 p-5 border-l-4 border-l-acs-primary cursor-pointer group relative"
         >
           <div className="flex justify-between items-start">
             <div>
-              <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-gray-700 transition-colors">Total Dealerships</dt>
-              <dd className="mt-1 text-3xl font-semibold text-gray-900"><AnimatedCounter value={dealerships.length} /></dd>
+              <dt className="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-[#243B36] transition-colors mb-1 block">Total Dealerships</dt>
+              <dd className="text-4xl font-extrabold text-gray-900"><AnimatedCounter value={dealerships.length} /></dd>
             </div>
             <div className="bg-gray-50 p-2 rounded-lg group-hover:bg-[#243B36]/5 transition-colors">
               <Store className="h-5 w-5 text-gray-400 group-hover:text-[#243B36] transition-colors" />
@@ -215,12 +215,12 @@ export function InteractiveMetricCards({ oems, dealerships, partners, technician
           whileHover={{ scale: 1.01, y: -2 }}
           whileTap={{ scale: 0.99 }}
           onClick={() => setActiveModal('PARTNER')}
-          className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-all rounded-xl border border-gray-100 p-5 border-l-4 border-l-[#243B36] cursor-pointer group relative"
+          className="bg-white overflow-hidden shadow-md hover:shadow-lg hover:border-gray-300 transition-all rounded-xl border border-gray-200 p-5 border-l-4 border-l-acs-primary cursor-pointer group relative"
         >
           <div className="flex justify-between items-start">
             <div>
-              <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-gray-700 transition-colors">Installation Partners</dt>
-              <dd className="mt-1 text-3xl font-semibold text-gray-900"><AnimatedCounter value={partners.length} /></dd>
+              <dt className="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-[#243B36] transition-colors mb-1 block">Installation Partners</dt>
+              <dd className="text-4xl font-extrabold text-gray-900"><AnimatedCounter value={partners.length} /></dd>
             </div>
             <div className="bg-gray-50 p-2 rounded-lg group-hover:bg-[#243B36]/5 transition-colors">
               <Users className="h-5 w-5 text-gray-400 group-hover:text-[#243B36] transition-colors" />
@@ -236,12 +236,12 @@ export function InteractiveMetricCards({ oems, dealerships, partners, technician
           whileHover={{ scale: 1.01, y: -2 }}
           whileTap={{ scale: 0.99 }}
           onClick={() => setActiveModal('TECHNICIAN')}
-          className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-all rounded-xl border border-gray-100 p-5 border-l-4 border-l-[#243B36] cursor-pointer group relative"
+          className="bg-white overflow-hidden shadow-md hover:shadow-lg hover:border-gray-300 transition-all rounded-xl border border-gray-200 p-5 border-l-4 border-l-acs-primary cursor-pointer group relative"
         >
           <div className="flex justify-between items-start">
             <div>
-              <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-gray-700 transition-colors">Active Technicians</dt>
-              <dd className="mt-1 text-3xl font-semibold text-gray-900"><AnimatedCounter value={technicians.length} /></dd>
+              <dt className="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-[#243B36] transition-colors mb-1 block">Active Technicians</dt>
+              <dd className="text-4xl font-extrabold text-gray-900"><AnimatedCounter value={technicians.length} /></dd>
             </div>
             <div className="bg-gray-50 p-2 rounded-lg group-hover:bg-[#243B36]/5 transition-colors">
               <Wrench className="h-5 w-5 text-gray-400 group-hover:text-[#243B36] transition-colors" />

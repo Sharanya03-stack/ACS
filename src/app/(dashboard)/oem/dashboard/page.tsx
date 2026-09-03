@@ -37,22 +37,22 @@ export default async function OemDashboard({
   ] = await Promise.all([
     supabase.from('organizations')
       .select('*', { count: 'exact', head: true })
-      .eq('type', 'DEALER'),
+      .eq('type', 'DEALER').eq('status', 'ACTIVE').eq('parent_org_id', profile.profile.org_id),
       
     supabase.from('vehicles')
       .select('*', { count: 'exact', head: true }),
       
     supabase.from('installations')
       .select('*', { count: 'exact', head: true })
-      .in('status', ['NEW', 'PARTNER_ASSIGNED', 'TECHNICIAN_ASSIGNED', 'SCHEDULED', 'IN_PROGRESS', 'UNDER_VERIFICATION', 'ON_HOLD', 'RESCHEDULED', 'REVISIT_REQUIRED']),
+      .eq('oem_id', profile.profile.org_id).in('status', ['PENDING_PARTNER', 'SCHEDULED', 'IN_PROGRESS']),
       
     supabase.from('installations')
       .select('*', { count: 'exact', head: true })
-      .in('status', ['COMPLETED', 'VERIFIED']),
+      .eq('oem_id', profile.profile.org_id).in('status', ['COMPLETED', 'VERIFIED', 'UNDER_VERIFICATION']),
       
     getInstallations(supabase, { page, search, status, category, dealer_id, oem_id: profile.profile.org_id || undefined }),
     
-    supabase.from('organizations').select('id, name').eq('type', 'DEALER')
+    supabase.from('organizations').select('id, name').eq('type', 'DEALER').eq('status', 'ACTIVE')
   ]);
 
   const dealers = dealersData || [];
@@ -69,7 +69,7 @@ export default async function OemDashboard({
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         <Link href="/oem/dealerships" className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow group relative">
-          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Associated Dealerships</dt>
+          <dt className="text-sm font-semibold text-gray-600 tracking-wide uppercase truncate group-hover:text-acs-primary transition-colors">Associated Dealerships</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{totalDealers || 0}</dd>
           <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -78,7 +78,7 @@ export default async function OemDashboard({
           </div>
         </Link>
         <Link href="/oem/vehicles" className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow group relative">
-          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Total EV Sales</dt>
+          <dt className="text-sm font-semibold text-gray-600 tracking-wide uppercase truncate group-hover:text-acs-primary transition-colors">Total EV Sales</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{totalVehicles || 0}</dd>
           <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -87,7 +87,7 @@ export default async function OemDashboard({
           </div>
         </Link>
         <Link href="/oem/active" className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow group relative">
-          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Pending Charger Installs</dt>
+          <dt className="text-sm font-semibold text-gray-600 tracking-wide uppercase truncate group-hover:text-acs-primary transition-colors">Pending Charger Installs</dt>
           <dd className="mt-1 text-3xl font-semibold text-acs-accent">{pendingInstallations || 0}</dd>
           <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -96,7 +96,7 @@ export default async function OemDashboard({
           </div>
         </Link>
         <Link href="/oem/completed" className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow group relative">
-          <dt className="text-sm font-medium text-gray-500 truncate group-hover:text-acs-primary transition-colors">Completed Installs</dt>
+          <dt className="text-sm font-semibold text-gray-600 tracking-wide uppercase truncate group-hover:text-acs-primary transition-colors">Completed Installs</dt>
           <dd className="mt-1 text-3xl font-semibold text-green-600">{completedInstallations || 0}</dd>
           <div className="absolute top-5 right-5 text-gray-400 group-hover:text-acs-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
