@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { WarrantyEditor } from './WarrantyEditor';
 import { formatPowerRating } from '@/utils/formatters';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CopyTechnicianLink } from '@/components/installations/CopyTechnicianLink';
 
 const formatStatus = (status: string) => {
   if (!status) return 'N/A';
@@ -379,6 +380,10 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
                                         <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Partner</p>
                                         <p className="text-sm text-gray-900">{inst.partner_name || 'Unassigned'}</p>
                                       </div>
+                                    </div>
+                                    
+                                    <div className="mt-4 flex gap-3">
+                                      {inst.tracking_token && <CopyTechnicianLink token={inst.tracking_token} />}
                                     </div>
                                     
                                     {inst.photos && inst.photos.length > 0 && (

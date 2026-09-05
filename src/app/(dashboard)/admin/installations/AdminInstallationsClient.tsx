@@ -1,4 +1,6 @@
 "use client";
+import { CopyTechnicianLink } from '@/components/installations/CopyTechnicianLink';
+
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -497,7 +499,10 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Order Details</h3>
                         <p className="mt-1 text-xs text-gray-500">Tracking Token:</p>
-                        <p className="text-sm text-gray-900 font-mono break-all">{selectedInst.tracking_token || 'N/A'}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-sm text-gray-900 font-mono break-all">{selectedInst.tracking_token || 'N/A'}</p>
+                          {selectedInst.tracking_token && <CopyTechnicianLink token={selectedInst.tracking_token} />}
+                        </div>
                         <p className="mt-2 text-xs text-gray-500">Remarks:</p>
                         <p className="text-sm text-gray-900">{selectedInst.remarks || 'None'}</p>
                       </div>
