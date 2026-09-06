@@ -3,14 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-// Valid transitions for a technician
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  'TECHNICIAN_ASSIGNED': ['IN_PROGRESS'],
-  'SCHEDULED': ['IN_PROGRESS'],
-  'IN_PROGRESS': ['UNDER_VERIFICATION', 'ON_HOLD'],
-  'ON_HOLD': ['IN_PROGRESS'],
-  'REVISIT_REQUIRED': ['IN_PROGRESS', 'UNDER_VERIFICATION']
-};
+import { isValidTransition } from "@/lib/transitions";
 
 export async function startJobAction(installationId: string) {
   const supabase = await createClient();
@@ -32,7 +25,7 @@ export async function startJobAction(installationId: string) {
   }
 
   const currentStatus = installation.status;
-  if (!VALID_TRANSITIONS[currentStatus]?.includes('IN_PROGRESS')) {
+  if (!isValidTransition(currentStatus, 'IN_PROGRESS')) {
     return { error: `Invalid transition from ${currentStatus} to IN_PROGRESS` };
   }
 

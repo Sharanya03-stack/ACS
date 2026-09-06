@@ -46,7 +46,7 @@ export async function updateSession(request: NextRequest) {
                            request.nextUrl.pathname.startsWith('/oem') ||
                            request.nextUrl.pathname.startsWith('/dealer') ||
                            request.nextUrl.pathname.startsWith('/partner') ||
-                           request.nextUrl.pathname.startsWith('/technician') ||
+                           (request.nextUrl.pathname.startsWith('/technician') && !request.nextUrl.pathname.startsWith('/technician/workflow')) ||
                            request.nextUrl.pathname.startsWith('/dashboard') ||
                            request.nextUrl.pathname.startsWith('/profile') ||
                            request.nextUrl.pathname.startsWith('/settings');

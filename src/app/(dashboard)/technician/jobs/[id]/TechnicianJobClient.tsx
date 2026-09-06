@@ -268,7 +268,7 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
 
       <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Job Details</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Job Details{job.display_id ? ` — ${job.display_id}` : ''}</h1>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">

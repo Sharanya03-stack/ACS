@@ -31,17 +31,29 @@ async function getOrgContactEmail(orgId: string): Promise<string | null> {
   return org.contact_email || null;
 }
 
+async function getInstallationDisplayId(installationId: string): Promise<string> {
+  const adminClient = getAdminClient();
+  const { data: inst } = await adminClient
+    .from('installations')
+    .select('display_id')
+    .eq('id', installationId)
+    .single();
+  return inst?.display_id || installationId;
+}
+
 export async function notifyPartnerAssigned(installationId: string, partnerId: string) {
   const email = await getOrgContactEmail(partnerId);
   if (!email) return;
 
+  const displayId = await getInstallationDisplayId(installationId);
+
   await sendEmail({
     to: email,
-    subject: `New Installation Assigned: ${installationId}`,
+    subject: `New Installation Assigned: ${displayId}`,
     htmlBody: `
       <h2>New Installation Assigned</h2>
       <p>A new EV charger installation has been assigned to your organization.</p>
-      <p><strong>Installation ID:</strong> ${installationId}</p>
+      <p><strong>Installation ID:</strong> ${displayId}</p>
       <p>Please log in to the partner dashboard to assign a technician.</p>
     `
   });
@@ -51,31 +63,32 @@ export async function notifyTechnicianAssigned(installationId: string, technicia
   const email = await getUserEmail(technicianId);
   if (!email) return;
 
+  const displayId = await getInstallationDisplayId(installationId);
+
   await sendEmail({
     to: email,
-    subject: `New Job Assigned: ${installationId}`,
+    subject: `New Job Assigned: ${displayId}`,
     htmlBody: `
       <h2>New Job Assigned</h2>
       <p>You have been assigned a new installation job.</p>
-      <p><strong>Installation ID:</strong> ${installationId}</p>
+      <p><strong>Installation ID:</strong> ${displayId}</p>
       <p>Please log in to your technician dashboard to view the job details and begin the checklist.</p>
     `
   });
 }
 
 export async function notifySubmittedForVerification(installationId: string, partnerId: string) {
-  // In the current architecture, who is the reviewer?
-  // Typically, it is the Partner admin or ACS Admin.
-  // We'll notify the Partner contact email.
   const email = await getOrgContactEmail(partnerId);
   if (!email) return;
 
+  const displayId = await getInstallationDisplayId(installationId);
+
   await sendEmail({
     to: email,
-    subject: `Installation Ready for Verification: ${installationId}`,
+    subject: `Installation Ready for Verification: ${displayId}`,
     htmlBody: `
       <h2>Installation Submitted for Verification</h2>
-      <p>The technician has submitted the checklist and photos for installation <strong>${installationId}</strong>.</p>
+      <p>The technician has submitted the checklist and photos for installation <strong>${displayId}</strong>.</p>
       <p>Please log in to the dashboard to review and verify this installation.</p>
     `
   });
@@ -85,12 +98,14 @@ export async function notifyRevisitRequested(installationId: string, technicianI
   const email = await getUserEmail(technicianId);
   if (!email) return;
 
+  const displayId = await getInstallationDisplayId(installationId);
+
   await sendEmail({
     to: email,
-    subject: `Revisit Required for Installation: ${installationId}`,
+    subject: `Revisit Required for Installation: ${displayId}`,
     htmlBody: `
       <h2>Revisit Required</h2>
-      <p>Your recent submission for installation <strong>${installationId}</strong> requires a revisit.</p>
+      <p>Your recent submission for installation <strong>${displayId}</strong> requires a revisit.</p>
       <p><strong>Reason provided by reviewer:</strong></p>
       <blockquote style="border-left: 4px solid #ccc; padding-left: 10px;">${reason}</blockquote>
       <p>Please correct these issues and resubmit the checklist and evidence.</p>
@@ -102,12 +117,14 @@ export async function notifyInstallationVerified(installationId: string, partner
   const email = await getOrgContactEmail(partnerId);
   if (!email) return;
 
+  const displayId = await getInstallationDisplayId(installationId);
+
   await sendEmail({
     to: email,
-    subject: `Installation Verified: ${installationId}`,
+    subject: `Installation Verified: ${displayId}`,
     htmlBody: `
       <h2>Installation Verified</h2>
-      <p>Installation <strong>${installationId}</strong> has been verified successfully.</p>
+      <p>Installation <strong>${displayId}</strong> has been verified successfully.</p>
       <p>No further action is required for this job.</p>
     `
   });

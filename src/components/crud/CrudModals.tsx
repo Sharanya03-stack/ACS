@@ -76,8 +76,8 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
         const supabase = createClient();
         const [dRes, cRes, vRes, chargersRes] = await Promise.all([
           supabase.from('organizations').select('id, name').eq('type', 'DEALER').eq('status', 'ACTIVE'),
-          supabase.from('customers').select('id, name, phone, dealer_id'),
-          supabase.from('vehicles').select('id, vin, model, customer_id'),
+          supabase.from('customers').select('id, display_id, name, phone, dealer_id'),
+          supabase.from('vehicles').select('id, display_id, vin, model, customer_id'),
           page === 'chargers' ? supabase.from('chargers').select('vehicle_id') : Promise.resolve({ data: [] })
         ]);
         
@@ -440,7 +440,7 @@ export function RowActions({ item, page, oems = [], userRole }: { item: any, pag
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700">VIN *</label>
-                <input required type="text" name="vin" defaultValue={item.vin || item.id} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                <input required type="text" name="vin" defaultValue={item.vin || ""} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Model *</label>
@@ -461,7 +461,7 @@ export function RowActions({ item, page, oems = [], userRole }: { item: any, pag
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Serial Number *</label>
-                <input required type="text" name="serial_number" defaultValue={item.serial_number || item.id} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                <input required type="text" name="serial_number" defaultValue={item.serial_number || ""} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Model *</label>

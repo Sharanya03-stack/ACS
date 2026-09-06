@@ -24,5 +24,5 @@ export default async function ProfilePage() {
     redirect('/login');
   }
 
-  return <ProfileClient initialUser={profile} />;
+  return <ProfileClient initialUser={{ ...profile, email: session.user.email }} />;
 }

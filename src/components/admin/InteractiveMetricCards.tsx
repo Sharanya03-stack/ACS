@@ -272,7 +272,7 @@ export function InteractiveMetricCards({ oems, dealerships, partners, technician
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="relative z-10 flex flex-col w-full max-w-2xl max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
+              className="relative z-[110] flex flex-col w-full max-w-2xl max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
             >
               {/* Header */}
               <div className="px-6 py-4 bg-[#243B36] text-white flex justify-between items-center shrink-0 shadow-sm z-20">

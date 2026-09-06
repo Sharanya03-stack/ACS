@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   // Convert to CSV string
   const headers = [
-    'Installation ID',
+    'Installation Number',
     'Status',
     'Category',
     'Customer Name',
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 
   for (const inst of installations) {
     const row = [
-      inst.id,
+      inst.display_id,
       inst.status,
       inst.category,
       inst.customers?.name,

@@ -43,23 +43,26 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
   switch (page) {
     case 'oems':
       title = 'OEM Manufacturers';
-      columns = [{key: 'id', label: 'OEM ID'}, {key: 'name', label: 'Name'}, {key: 'contactPerson', label: 'Contact'}, {key: 'email', label: 'Email'}, {key: 'status', label: 'Status'}];
-      const { data: oems } = await supabase.from('organizations').select('id, name, contact_phone, contact_email, address, status').eq('type', 'OEM').eq('status', 'ACTIVE');
+      columns = [{key: 'display_id', label: 'OEM ID'}, {key: 'name', label: 'Name'}, {key: 'contactPerson', label: 'Contact'}, {key: 'email', label: 'Email'}, {key: 'status', label: 'Status'}];
+      const { data: oems } = await supabase.from('organizations').select('id, display_id, name, contact_phone, contact_email, address, status').eq('type', 'OEM').eq('status', 'ACTIVE');
       data = (oems || []).map(o => ({ ...o, contactPerson: o.contact_phone, email: o.contact_email }));
       break;
     case 'dealerships':
       title = 'Dealerships';
-      columns = [{key: 'id', label: 'Dealer ID'}, {key: 'name', label: 'Dealership Name'}, {key: 'city', label: 'City'}, {key: 'phone', label: 'Phone'}, {key: 'status', label: 'Status'}];
-      const { data: dealers } = await supabase.from('organizations').select('id, name, parent_org_id, address, contact_phone, contact_email, status').eq('type', 'DEALER').eq('status', 'ACTIVE');
+      columns = [{key: 'display_id', label: 'Dealer ID'}, {key: 'name', label: 'Dealership Name'}, {key: 'city', label: 'City'}, {key: 'phone', label: 'Phone'}, {key: 'status', label: 'Status'}];
+      const { data: dealers } = await supabase.from('organizations').select('id, display_id, name, parent_org_id, address, contact_phone, contact_email, status').eq('type', 'DEALER').eq('status', 'ACTIVE');
       data = (dealers || []).map(d => ({ ...d, city: '-', phone: d.contact_phone, email: d.contact_email }));
       const { data: allOems } = await supabase.from('organizations').select('id, name, status').eq('type', 'OEM').eq('status', 'ACTIVE');
       parentOrgs = allOems || [];
       break;
     case 'customers':
       title = 'Customers';
-      columns = [{key: 'id', label: 'Customer ID'}, {key: 'name', label: 'Name'}, {key: 'phone', label: 'Phone'}, {key: 'city', label: 'City'}, {key: 'dealerId', label: 'Dealer ID'}];
-      const { data: customers } = await supabase.from('customers').select('id, name, phone, city, dealer_id');
-      data = (customers || []).map(c => ({ ...c, dealerId: c.dealer_id }));
+      columns = [{key: 'display_id', label: 'Customer ID'}, {key: 'name', label: 'Name'}, {key: 'phone', label: 'Phone'}, {key: 'city', label: 'City'}, {key: 'dealerId', label: 'Dealer ID'}];
+      const { data: customers } = await supabase.from('customers').select('id, display_id, name, phone, city, dealer_id, organizations:dealer_id(display_id, name)');
+      data = (customers || []).map(c => ({
+        ...c,
+        dealerId: Array.isArray(c.organizations) ? c.organizations[0]?.display_id : (c.organizations as any)?.display_id
+      }));
       break;
     case 'vehicles':
       title = 'Vehicles';
@@ -75,8 +78,8 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
       break;
     case 'partners':
       title = 'Installation Partners';
-      columns = [{key: 'id', label: 'Partner ID'}, {key: 'name', label: 'Name'}, {key: 'location', label: 'Location'}, {key: 'phone', label: 'Phone'}, {key: 'status', label: 'Status'}];
-      const { data: partners } = await supabase.from('organizations').select('id, name, address, contact_phone, contact_email, status').eq('type', 'PARTNER').eq('status', 'ACTIVE');
+      columns = [{key: 'display_id', label: 'Partner ID'}, {key: 'name', label: 'Name'}, {key: 'location', label: 'Location'}, {key: 'phone', label: 'Phone'}, {key: 'status', label: 'Status'}];
+      const { data: partners } = await supabase.from('organizations').select('id, display_id, name, address, contact_phone, contact_email, status').eq('type', 'PARTNER').eq('status', 'ACTIVE');
       data = (partners || []).map(p => ({ ...p, location: p.address || '-', phone: p.contact_phone, email: p.contact_email }));
       break;
     case 'technicians':

@@ -13,6 +13,7 @@ export interface ProfileData {
   id: string;
   name: string;
   role: string;
+  email?: string;
   phone?: string;
   org_id?: string;
   address?: string;
@@ -27,7 +28,7 @@ export default function ProfileClient({ initialUser }: { initialUser: ProfileDat
   // Local state for form fields
   const [formData, setFormData] = useState({
     name: initialUser?.name || '',
-    email: `${initialUser?.id}@acsenergy.com`,
+    email: initialUser?.email || 'user@acsenergy.com',
     phone: initialUser?.phone || '+91 98765 43210',
     address: initialUser?.address || 'Mumbai, Maharashtra',
     department: initialUser?.role === 'TECHNICIAN' ? 'Field Operations' : 'Management',
@@ -37,7 +38,7 @@ export default function ProfileClient({ initialUser }: { initialUser: ProfileDat
   useEffect(() => {
     setFormData({
       name: initialUser?.name || '',
-      email: `${initialUser?.id}@acsenergy.com`,
+      email: initialUser?.email || 'user@acsenergy.com',
       phone: initialUser?.phone || '+91 98765 43210',
       address: initialUser?.address || 'Mumbai, Maharashtra',
       department: initialUser?.role === 'TECHNICIAN' ? 'Field Operations' : 'Management',

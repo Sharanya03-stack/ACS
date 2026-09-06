@@ -96,7 +96,7 @@ export default async function DealerInstallationsPage({
                 installations.map((inst: any) => {
                   return (
                     <tr key={inst.id} className="acs-table-row">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.display_id}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <CustomerNameCell id={inst.customers?.id} name={`${inst.customers?.name || ''}`} city={inst.customers?.phone} />
                       </td>

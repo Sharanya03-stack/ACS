@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import { isValidTransition } from '@/lib/transitions';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -19,17 +20,64 @@ export async function getInstallationByToken(token: string) {
   const { data: inst, error } = await supabase
     .from('installations')
     .select(`
-      id, status, category, scheduled_date, tracking_token,
-      customers(name, city, state, address, phone),
-      vehicles(model, vin),
-      chargers(model, serial_number, power_rating),
-      partner_id
+      id, display_id, status, category, scheduled_date, tracking_token, created_at,
+      customer_id, vehicle_id, charger_id, partner_id, technician_id
     `)
     .eq('tracking_token', token)
     .single();
     
   if (error || !inst) return null;
-  return inst;
+
+  // Fetch relations manually to avoid FK ambiguity if any
+  let customers: any[] = [], vehicles: any[] = [], chargers: any[] = [], partner = null, technician = null, dealer = null, oem = null;
+
+  if (inst.customer_id) {
+    const { data: c } = await supabase.from('customers').select('*').eq('id', inst.customer_id).single();
+    if (c) {
+      customers = [c];
+      if (c.dealer_id) {
+        const { data: d } = await supabase.from('organizations').select('*').eq('id', c.dealer_id).single();
+        dealer = d;
+        if (d && d.parent_org_id) {
+          const { data: o } = await supabase.from('organizations').select('*').eq('id', d.parent_org_id).single();
+          oem = o;
+        }
+      }
+    }
+  }
+
+  if (inst.vehicle_id) {
+    const { data: v } = await supabase.from('vehicles').select('*').eq('id', inst.vehicle_id).single();
+    if (v) vehicles = [v];
+  }
+
+  if (inst.charger_id) {
+    const { data: c } = await supabase.from('chargers').select('*').eq('id', inst.charger_id).single();
+    if (c) chargers = [c];
+  }
+
+  if (inst.partner_id) {
+    const { data: p } = await supabase.from('organizations').select('*').eq('id', inst.partner_id).single();
+    partner = p;
+  }
+
+  if (inst.technician_id) {
+    const { data: t } = await supabase.from('users').select('*').eq('id', inst.technician_id).single();
+    // or maybe it's in a technicians table? Let's check 'profiles'
+    const { data: tp } = await supabase.from('profiles').select('*').eq('id', inst.technician_id).single();
+    technician = tp || t;
+  }
+
+  return {
+    ...inst,
+    customers,
+    vehicles,
+    chargers,
+    partner,
+    technician,
+    dealer,
+    oem
+  };
 }
 
 export async function externalStartJob(token: string) {
@@ -37,8 +85,8 @@ export async function externalStartJob(token: string) {
   const inst = await getInstallationByToken(token);
   if (!inst) return { error: 'Invalid token' };
   
-  if (inst.status !== 'TECHNICIAN_ASSIGNED' && inst.status !== 'SCHEDULED' && inst.status !== 'IN_PROGRESS' && inst.status !== 'REVISIT_REQUIRED') {
-    return { error: 'Invalid transition' };
+  if (!isValidTransition(inst.status, 'IN_PROGRESS')) {
+    return { error: 'Invalid transition from ' + inst.status + ' to IN_PROGRESS' };
   }
   
   if (inst.status !== 'IN_PROGRESS') {
@@ -47,6 +95,15 @@ export async function externalStartJob(token: string) {
       .update({ status: 'IN_PROGRESS', started_at: new Date().toISOString() })
       .eq('id', inst.id);
     if (updateError) return { error: 'Failed to start job' };
+
+    // Fire audit log if it's external, since we don't know the tech exactly
+    await supabase.from('audit_logs').insert({
+      entity_type: 'INSTALLATION',
+      entity_id: inst.id,
+      action: 'STATUS_CHANGED',
+      new_value: { status: 'IN_PROGRESS' },
+      created_at: new Date().toISOString()
+    });
   }
   
   revalidatePath(`/technician/workflow/${token}`);
@@ -110,6 +167,43 @@ export async function externalUploadPhoto(formData: FormData) {
   });
 
   if (dbError) return { error: dbError.message };
+  return { success: true };
+}
+
+export async function externalUploadDocument(formData: FormData) {
+  const token = formData.get('trackingToken') as string;
+  const file = formData.get('file') as File;
+  
+  if (!token || !file) return { error: 'Missing required fields' };
+  
+  const supabase = getAdminClient();
+  const inst = await getInstallationByToken(token);
+  if (!inst) return { error: 'Invalid token' };
+
+  if (file.type !== 'application/pdf') return { error: 'Unsupported file type, must be PDF' };
+  if (file.size > MAX_FILE_SIZE) return { error: 'File exceeds 5MB' };
+
+  const fileName = `${inst.id}/INSTALLATION_PDF_${Date.now()}.pdf`;
+  
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from('installation-evidence')
+    .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { error: dbError } = await supabase.from('installation_photos').insert({
+    installation_id: inst.id,
+    category: 'INSTALLATION_PDF',
+    storage_path: uploadData.path,
+    file_type: file.type,
+    file_size: file.size,
+    uploaded_at: new Date().toISOString()
+  });
+
+  if (dbError) return { error: dbError.message };
+  
+  // Revalidate to refresh the UI
+  revalidatePath(`/technician/workflow/${token}`);
   return { success: true };
 }
 

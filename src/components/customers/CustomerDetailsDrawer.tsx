@@ -142,7 +142,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
               <p className="text-sm text-gray-300 mt-1 flex items-center gap-2">
                 <span className="font-medium text-white">{customer.name}</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                <span>ID: {customer.display_id || customer.customer_id || customer.id.slice(0, 8).toUpperCase()}</span>
+                <span>ID: {customer.display_id || customer.customer_id || 'N/A'}</span>
               </p>
             )}
           </div>
@@ -228,7 +228,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
                       </div>
                       <div className="col-span-2 lg:col-span-1">
                         <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Customer ID</p>
-                        <p className="text-sm text-gray-900">{customer?.display_id || customer?.customer_id || customer?.id?.slice(0,8).toUpperCase() || 'N/A'}</p>
+                        <p className="text-sm text-gray-900">{customer?.display_id || customer?.customer_id || 'N/A'}</p>
                       </div>
                       <div className="col-span-2 lg:col-span-1">
                         <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Phone</p>

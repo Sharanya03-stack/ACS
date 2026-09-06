@@ -180,7 +180,7 @@ export default function LoginPage() {
                 <option value="oem001">OEM (oem@tata.com)</option>
                 <option value="dealer001">Dealer (dealer@tata.com)</option>
                 <option value="partner001">Installation Partner (partner@voltcharge.com)</option>
-                <option value="tech001">Technician (tech@voltcharge.com)</option>
+                
               </select>
             </div>
 

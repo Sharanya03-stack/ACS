@@ -205,7 +205,13 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
           <div className="px-4 py-6 bg-gray-50 border-b sm:px-6 flex justify-between items-center sticky top-0 z-10">
             <div>
               <h2 className="text-lg font-medium text-gray-900">Installation Review</h2>
-              <p className="text-sm text-gray-500">{details?.display_id || installationId}</p>
+              <p className="text-sm text-gray-500">
+                {loading || !details ? (
+                  <span className="inline-block w-28 h-4 bg-gray-200 animate-pulse rounded"></span>
+                ) : (
+                  details.display_id
+                )}
+              </p>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
               <span className="sr-only">Close panel</span>

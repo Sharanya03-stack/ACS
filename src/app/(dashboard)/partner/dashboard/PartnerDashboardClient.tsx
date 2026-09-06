@@ -69,7 +69,7 @@ export default function PartnerDashboardClient({
 
                 return (
                   <tr key={inst.id} className="acs-table-row">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.display_id || inst.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.display_id}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {customer ? (
                         <CustomerNameCell id={customer.id} name={`${customer.name || ''}`} city={`${customer.address}, ${customer.city}`} />

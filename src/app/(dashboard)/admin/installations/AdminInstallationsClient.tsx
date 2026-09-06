@@ -262,7 +262,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
 
                 return (
                   <tr key={inst.id} className="acs-table-row cursor-pointer" onClick={() => setSelectedInst(inst)}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.display_id || inst.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.display_id}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{c?.name}</div>
                       <div className="text-sm text-gray-500">{c?.city}</div>
@@ -323,7 +323,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
               </div>
               <div className="p-6">
                 <p className="text-sm text-gray-500 mb-4">
-                  Select a partner for installation #{assigningPartnerInst.display_id || assigningPartnerInst.id.substring(0,8)}. The selected partner will be notified.
+                  Select a partner for installation #{assigningPartnerInst.display_id}. The selected partner will be notified.
                 </p>
                 <div className="space-y-4">
                   <div>
@@ -382,7 +382,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="relative z-10 flex flex-col w-full max-w-5xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
+              className="relative z-[110] flex flex-col w-full max-w-5xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
             >
               <div className="px-6 py-5 bg-[#243B36] text-white flex justify-between items-center shrink-0 shadow-sm z-20">
                 <div>
@@ -390,7 +390,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                     <BatteryCharging className="h-5 w-5 text-[#D6A84F]" />
                     INSTALLATION DETAILS
                   </h2>
-                  <p className="text-sm text-gray-300 mt-1">{selectedInst.id}</p>
+                  <p className="text-sm text-gray-300 mt-1">{selectedInst.display_id}</p>
                 </div>
                 <button 
                   onClick={() => setSelectedInst(null)} 

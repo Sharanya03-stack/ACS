@@ -87,8 +87,6 @@ export function Header({ user }: { user: DashboardUser }) {
               <span className="text-sm font-semibold text-gray-900 leading-tight">{user?.name}</span>
               <div className="flex items-center text-xs text-gray-500 mt-0.5 space-x-1">
                 <span>{getRoleLabel(user?.role)}</span>
-                <span>•</span>
-                <span className="font-mono">{user?.id}</span>
               </div>
             </div>
             <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />

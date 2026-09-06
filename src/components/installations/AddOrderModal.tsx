@@ -73,8 +73,8 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
 
     // Fetch customers, vehicles, and unassigned 3.3kW chargers
     const [custRes, vehRes, charRes] = await Promise.all([
-      supabase.from('customers').select('id, name, dealer_id').order('name'),
-      supabase.from('vehicles').select('id, vin, model, customer_id'),
+      supabase.from('customers').select('id, display_id, name, dealer_id').order('name'),
+      supabase.from('vehicles').select('id, display_id, vin, model, customer_id'),
       supabase.from('chargers').select(`
         id, display_id, serial_number, model, power_rating, customer_id, vehicle_id,
         installations ( id )
@@ -414,7 +414,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                         <option value="">-- Select 3.3 kW Charger --</option>
                         {availableChargers.map(c => (
                           <option key={c.id} value={c.id}>
-                            {c.display_id || c.id.split('-')[0]} — Serial: {c.serial_number} — {c.model}
+                            {c.display_id} — Serial: {c.serial_number} — {c.model}
                           </option>
                         ))}
                       </select>
