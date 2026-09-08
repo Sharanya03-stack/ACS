@@ -221,7 +221,7 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
             </button>
           </div>
 
-          <div className="flex-1 px-4 py-6 sm:px-6 space-y-8">
+          <div className="flex-1 overflow-y-auto min-h-0 px-4 py-6 sm:px-6 space-y-8">
             {loading ? (
               <div className="text-center py-12">Loading details...</div>
             ) : details ? (

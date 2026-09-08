@@ -156,7 +156,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50/50">
+        <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 lg:p-8 bg-gray-50/50">
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <Loader2 className="animate-spin h-8 w-8 text-[#243B36]" />
