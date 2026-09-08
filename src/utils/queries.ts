@@ -24,9 +24,9 @@ export async function getInstallations(supabase: SupabaseClient, params: GetInst
     customers:customer_id (*),
     vehicles:vehicle_id (*),
     chargers:charger_id (*),
-    dealers:dealer_id (id, name, type),
-    oems:oem_id (id, name, type),
-    partners:partner_id (id, name, type, address),
+    dealers:dealer_id (id, display_id, name, type),
+    oems:oem_id (id, display_id, name, type),
+    partners:partner_id (id, display_id, name, type, address),
     technicians:technician_id (id, name, role)
   `, { count: 'exact' });
 
@@ -70,22 +70,25 @@ export async function getInstallations(supabase: SupabaseClient, params: GetInst
     const term = `%${params.search}%`;
     
     // Concurrently search related tables for matching foreign keys
-    const [custRes, vehRes, charRes] = await Promise.all([
+    const [custRes, vehRes, charRes, dealerRes] = await Promise.all([
       supabase.from('customers').select('id').ilike('name', term),
       supabase.from('vehicles').select('id').ilike('vin', term),
-      supabase.from('chargers').select('id').ilike('serial_number', term)
+      supabase.from('chargers').select('id').ilike('serial_number', term),
+      supabase.from('organizations').select('id').eq('type', 'DEALER').ilike('name', term)
     ]);
     
     const custIds = (custRes.data || []).map(d => d.id);
     const vehIds = (vehRes.data || []).map(d => d.id);
     const charIds = (charRes.data || []).map(d => d.id);
+    const dealerIds = (dealerRes.data || []).map(d => d.id);
     
-    // Supabase allows OR across root table columns. We can construct an OR filter string.
-    let orClauses = [];
+    // Supabase allows OR across root table columns.
+    let orClauses = [`display_id.ilike.${term}`];
     
     if (custIds.length > 0) orClauses.push(`customer_id.in.(${custIds.join(',')})`);
     if (vehIds.length > 0) orClauses.push(`vehicle_id.in.(${vehIds.join(',')})`);
     if (charIds.length > 0) orClauses.push(`charger_id.in.(${charIds.join(',')})`);
+    if (dealerIds.length > 0) orClauses.push(`dealer_id.in.(${dealerIds.join(',')})`);
     
     // We can also search installation ID if it matches the UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

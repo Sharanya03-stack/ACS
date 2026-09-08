@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { createInstallationOrder } from '@/app/actions/createInstallationOrder';
 import { createCharger, createCustomer, createVehicle } from '@/app/actions/entityActions';
@@ -8,6 +9,7 @@ import toast from 'react-hot-toast';
 import { X, Loader2 } from 'lucide-react';
 
 export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+  const router = useRouter();
   const [customers, setCustomers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [chargers, setChargers] = useState<any[]>([]);
@@ -18,6 +20,10 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [selectedChargerId, setSelectedChargerId] = useState('');
   
+  const [selectedPartnerId, setSelectedPartnerId] = useState('');
+  const [partnerSearchQuery, setPartnerSearchQuery] = useState('');
+  const [isPartnerDropdownOpen, setIsPartnerDropdownOpen] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [userRole, setUserRole] = useState('');
@@ -40,6 +46,9 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
 
   const loadData = async () => {
     setLoading(true);
+    setSelectedPartnerId('');
+    setPartnerSearchQuery('');
+    setIsPartnerDropdownOpen(false);
     const supabase = createClient();
     
     // Get user role
@@ -58,7 +67,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
     }
 
     // Fetch partners for Admin/OEM to assign
-    const { data: partnersData } = await supabase.from('organizations').select('id, name').eq('type', 'PARTNER');
+    const { data: partnersData } = await supabase.from('organizations').select('id, display_id, name').eq('type', 'PARTNER').order('name');
     if (partnersData) setPartners(partnersData);
 
     // Fetch dealers if Admin/OEM
@@ -92,6 +101,15 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
 
   const availableVehicles = useMemo(() => vehicles.filter(v => v.customer_id === selectedCustomerId), [vehicles, selectedCustomerId]);
   const availableChargers = useMemo(() => chargers.filter(c => c.vehicle_id === selectedVehicleId && c.customer_id === selectedCustomerId), [chargers, selectedVehicleId, selectedCustomerId]);
+  
+  const filteredPartners = useMemo(() => {
+    if (!partnerSearchQuery.trim()) return partners;
+    const q = partnerSearchQuery.toLowerCase();
+    return partners.filter(p => 
+      p.name?.toLowerCase().includes(q) || 
+      p.display_id?.toLowerCase().includes(q)
+    );
+  }, [partners, partnerSearchQuery]);
 
   // Reset dependent dropdowns when customer changes
   useEffect(() => {
@@ -130,6 +148,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
     
     if (res.success) {
       toast.success('Order created successfully');
+      router.refresh();
       onClose();
     } else {
       toast.error(res.error || 'Failed to create order');
@@ -459,14 +478,71 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                     </div>
 
                     {(userRole === 'ACS_ADMIN' || userRole === 'OEM') && (
-                      <div>
+                      <div className="relative">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Assign Partner (Optional)</label>
-                        <select name="partner_id" className="w-full border rounded-md p-2 text-sm focus:ring-gray-900 focus:border-gray-900 bg-white">
-                          <option value="">-- Do not assign yet --</option>
-                          {partners.map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                          ))}
-                        </select>
+                        <input type="hidden" name="partner_id" value={selectedPartnerId} />
+                        <div className="relative flex items-center">
+                          <input
+                            type="text"
+                            placeholder="Type partner name or ID..."
+                            value={
+                              selectedPartnerId 
+                                ? (partners.find(p => p.id === selectedPartnerId)?.name 
+                                   ? `${partners.find(p => p.id === selectedPartnerId)?.name}${partners.find(p => p.id === selectedPartnerId)?.display_id ? ` (${partners.find(p => p.id === selectedPartnerId)?.display_id})` : ''}`
+                                   : partnerSearchQuery)
+                                : partnerSearchQuery
+                            }
+                            onChange={(e) => {
+                              if (selectedPartnerId) {
+                                setSelectedPartnerId('');
+                              }
+                              setPartnerSearchQuery(e.target.value);
+                              setIsPartnerDropdownOpen(true);
+                            }}
+                            onFocus={() => setIsPartnerDropdownOpen(true)}
+                            className="w-full border rounded-md p-2 pr-8 text-sm focus:ring-gray-900 focus:border-gray-900 bg-white"
+                          />
+                          {(selectedPartnerId || partnerSearchQuery) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPartnerId('');
+                                setPartnerSearchQuery('');
+                                setIsPartnerDropdownOpen(false);
+                              }}
+                              className="absolute right-2 text-gray-400 hover:text-gray-600 p-1"
+                              title="Clear selection"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        {isPartnerDropdownOpen && !selectedPartnerId && (
+                          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                            {filteredPartners.length === 0 ? (
+                              <div className="p-2.5 text-xs text-gray-500 text-center">No matching partners found</div>
+                            ) : (
+                              filteredPartners.map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedPartnerId(p.id);
+                                    setPartnerSearchQuery(p.name);
+                                    setIsPartnerDropdownOpen(false);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center justify-between border-b last:border-b-0 border-gray-50"
+                                >
+                                  <span className="font-medium text-gray-900">{p.name}</span>
+                                  {p.display_id && (
+                                    <span className="text-xs text-gray-400 font-mono ml-2">{p.display_id}</span>
+                                  )}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 

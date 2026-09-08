@@ -72,9 +72,17 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
       break;
     case 'chargers':
       title = 'Chargers';
-      columns = [{key: 'id', label: 'Serial Number'}, {key: 'model', label: 'Model'}, {key: 'power', label: 'Power'}, {key: 'vehicleId', label: 'Vehicle VIN'}];
-      const { data: chargers } = await supabase.from('chargers').select('id, serial_number, model, power_rating, vehicle_id');
-      data = (chargers || []).map(c => ({ ...c, id: c.serial_number, power: formatPowerRating(c.power_rating), vehicleId: c.vehicle_id }));
+      columns = [{key: 'id', label: 'Serial Number'}, {key: 'model', label: 'Model'}, {key: 'power', label: 'Power'}, {key: 'vehicleVin', label: 'Vehicle VIN'}];
+      const { data: chargers } = await supabase.from('chargers').select('id, serial_number, model, power_rating, vehicle_id, vehicles:vehicle_id(vin, display_id)');
+      data = (chargers || []).map(c => {
+        const v = Array.isArray(c.vehicles) ? c.vehicles[0] : (c.vehicles as any);
+        return {
+          ...c,
+          id: c.serial_number,
+          power: formatPowerRating(c.power_rating),
+          vehicleVin: v?.vin || v?.display_id || '-'
+        };
+      });
       break;
     case 'partners':
       title = 'Installation Partners';
@@ -84,9 +92,9 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
       break;
     case 'technicians':
       title = 'Technicians';
-      columns = [{key: 'id', label: 'Tech ID'}, {key: 'name', label: 'Name'}, {key: 'location', label: 'Location'}, {key: 'phone', label: 'Phone'}, {key: 'status', label: 'Status'}];
-      const { data: technicians } = await supabase.from('profiles').select('id, name, phone, address, status').eq('role', 'TECHNICIAN').eq('status', 'ACTIVE');
-      data = (technicians || []).map(t => ({ ...t, location: t.address || '-' }));
+      columns = [{key: 'display_id', label: 'Tech ID'}, {key: 'name', label: 'Name'}, {key: 'location', label: 'Location'}, {key: 'phone', label: 'Phone'}, {key: 'status', label: 'Status'}];
+      const { data: technicians } = await supabase.from('profiles').select('id, display_id, name, phone, address, status').eq('role', 'TECHNICIAN').eq('status', 'ACTIVE');
+      data = (technicians || []).map(t => ({ ...t, display_id: t.display_id || '-', location: t.address || '-' }));
       break;
     case 'installations':
     case 'requests':
@@ -98,14 +106,14 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
     case 'upcoming':
       title = page.charAt(0).toUpperCase() + page.slice(1).replace('-', ' ');
       columns = [
-        {key: 'id', label: 'Inst. ID'}, 
+        {key: 'display_id', label: 'Inst. ID'}, 
         {key: 'customerName', label: 'Customer'}, 
         {key: 'status', label: 'Status'},
         {key: 'dateCreated', label: 'Date'}
       ];
       
       let query = supabase.from('installations').select(`
-        id, status, created_at, customer_id,
+        id, display_id, status, created_at, customer_id,
         customers(name, city),
         vehicles(model, vin)
       `);
@@ -125,6 +133,7 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
       const { data: installations } = await query;
       data = (installations || []).map(i => ({ 
         id: i.id,
+        display_id: i.display_id || i.id,
         customerId: i.customer_id,
         customerName: Array.isArray(i.customers) ? i.customers[0]?.name : (i.customers as any)?.name || 'Unknown',
         city: Array.isArray(i.customers) ? i.customers[0]?.city : (i.customers as any)?.city || '',

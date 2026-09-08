@@ -168,6 +168,7 @@ export default function LoginPage() {
                     
 
           
+          {process.env.NODE_ENV !== 'production' && (
             <div className="mb-6 p-4 bg-gray-50/80 border border-gray-100 rounded-xl">
               <h3 className="text-sm font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-2">Demo Access</h3>
               <select 
@@ -180,11 +181,10 @@ export default function LoginPage() {
                 <option value="oem001">OEM (oem@tata.com)</option>
                 <option value="dealer001">Dealer (dealer@tata.com)</option>
                 <option value="partner001">Installation Partner (partner@voltcharge.com)</option>
-                
               </select>
             </div>
+          )}
 
-          
             <form className="space-y-6" onSubmit={handleEmailLogin}>
               <div>
                 <label htmlFor="userId" className="block text-sm font-medium text-gray-700">
@@ -243,7 +243,7 @@ export default function LoginPage() {
             </form>
           
           <div className="mt-8 text-center border-t border-gray-100 pt-6">
-            <p className="text-xs text-gray-500">Secure Enterprise Portal • v2.0</p>
+            <p className="text-xs text-gray-500">ACS Energy • EV Charger Installation Platform</p>
           </div>
         </div>
       </motion.div>
