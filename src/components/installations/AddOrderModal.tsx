@@ -80,14 +80,14 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
       if (dealersData) setDealers(dealersData);
     }
 
-    // Fetch customers, vehicles, and unassigned 3.3kW chargers
+    // Fetch customers, vehicles, and unassigned chargers
     const [custRes, vehRes, charRes] = await Promise.all([
       supabase.from('customers').select('id, display_id, name, dealer_id').order('name'),
       supabase.from('vehicles').select('id, display_id, vin, model, customer_id'),
       supabase.from('chargers').select(`
         id, display_id, serial_number, model, power_rating, customer_id, vehicle_id,
         installations ( id )
-      `).or('power_rating.eq.3.3,power_rating.eq.3.3kW')
+      `)
     ]);
 
     if (custRes.data) setCustomers(custRes.data);
@@ -208,11 +208,18 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
 
   async function handleCreateCharger(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setCreatingChargerLoading(true);
     const formData = new FormData(e.currentTarget);
+
+    const rawPower = formData.get('power_rating') as string;
+    const numericPower = parseFloat(rawPower);
+    if (!rawPower || isNaN(numericPower) || numericPower <= 0) {
+      toast.error('Please enter a valid power rating greater than 0 kW (e.g. 3.3, 7.4, 11, 22).');
+      return;
+    }
+
+    setCreatingChargerLoading(true);
     formData.set('customerId', selectedCustomerId);
     formData.set('vehicleId', selectedVehicleId);
-    formData.set('power_rating', '3.3');
     
     const res = await createCharger(formData);
     
@@ -408,8 +415,17 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                         <input type="text" name="serial_number" required className="w-full border rounded-md p-2 text-sm bg-white" placeholder="e.g. CHG-3333" />
                       </div>
                                               <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Power Rating</label>
-                          <input type="text" value="3.3 kW" disabled className="w-full border rounded-md p-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed font-medium" />
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Power Rating (kW) *</label>
+                          <input 
+                            type="number" 
+                            step="0.1" 
+                            min="0.1" 
+                            name="power_rating" 
+                            required 
+                            defaultValue="3.3" 
+                            placeholder="e.g. 3.3, 7.4, 11, 22" 
+                            className="w-full border rounded-md p-2 text-sm bg-white focus:ring-gray-900 focus:border-gray-900" 
+                          />
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Warranty Months</label>
@@ -430,24 +446,29 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                         onChange={(e) => setSelectedChargerId(e.target.value)}
                         className="w-full border rounded-md p-2 text-sm focus:ring-gray-900 focus:border-gray-900 bg-white"
                       >
-                        <option value="">-- Select 3.3 kW Charger --</option>
-                        {availableChargers.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.display_id} — Serial: {c.serial_number} — {c.model}
-                          </option>
-                        ))}
+                        <option value="">-- Select Charger --</option>
+                        {availableChargers.map(c => {
+                          const ratingStr = c.power_rating 
+                            ? (String(c.power_rating).toLowerCase().includes('kw') ? c.power_rating : `${c.power_rating} kW`)
+                            : '3.3 kW';
+                          return (
+                            <option key={c.id} value={c.id}>
+                              {c.display_id || c.serial_number} — {ratingStr} — Serial: {c.serial_number} ({c.model})
+                            </option>
+                          );
+                        })}
                       </select>
                       <div className="mt-2 text-right">
                         <button type="button" onClick={() => setIsCreatingCharger(true)} className="text-xs font-medium text-blue-600 hover:text-blue-800">
-                          + Create New 3.3 kW Charger
+                          + Create New Charger
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div className="border border-dashed border-gray-300 rounded-md p-4 text-center bg-white">
-                      <p className="text-sm text-gray-600 mb-3">No available 3.3 kW chargers.</p>
+                      <p className="text-sm text-gray-600 mb-3">No available chargers found.</p>
                       <button type="button" onClick={() => setIsCreatingCharger(true)} className="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-900 hover:bg-gray-50 rounded-md transition-colors">
-                        + Create 3.3 kW Charger
+                        + Create Charger
                       </button>
                     </div>
                   )}
