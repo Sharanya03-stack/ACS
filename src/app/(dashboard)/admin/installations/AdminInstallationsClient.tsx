@@ -200,6 +200,33 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
     setIsSubmitting(false);
   };
 
+  const handleAssignPartnerFromDrawer = async (id: string, partnerId: string) => {
+    setIsSubmitting(true);
+    const res = await assignPartnerAction(id, partnerId);
+    if (res.success) {
+      const { data: updatedInst } = await supabase
+        .from('installations')
+        .select(`
+          *,
+          customers:customer_id (id, display_id, name, phone, address, city),
+          dealers:dealer_id (id, display_id, name),
+          partners:partner_id (id, display_id, name, type, address),
+          technicians:technician_id (id, display_id, name, phone),
+          chargers:charger_id (id, display_id, serial_number, model)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (updatedInst) {
+        setSelectedInst(updatedInst);
+      }
+      router.refresh();
+    } else {
+      alert("Failed to assign partner: " + res.error);
+    }
+    setIsSubmitting(false);
+  };
+
   const handleAssignTechnician = async (id: string, techId: string) => {
     setIsAssigningTech(true);
     const res = await assignTechnician(id, techId);
@@ -464,13 +491,43 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                         <p className="mt-1 text-sm text-gray-900">{selectedInst.dealers?.name}</p>
                       </div>
                       <div>
-                        <h3 className="text-sm font-medium text-gray-500">Partner & Technician</h3>
-                        <p className="mt-1 text-sm text-gray-900">{selectedInst.partners?.name || 'Unassigned'}</p>
-                        {selectedInst.partners?.address && (
-                          <p className="text-sm text-gray-500">{selectedInst.partners.address}</p>
+                        <h3 className="text-sm font-medium text-gray-500">Partner Organization</h3>
+                        {selectedInst.partner_id ? (
+                          <>
+                            <p className="mt-1 text-sm text-gray-900 font-semibold">{selectedInst.partners?.name}</p>
+                            {selectedInst.partners?.display_id && (
+                              <p className="text-xs text-gray-500 font-mono">Partner ID: {selectedInst.partners.display_id}</p>
+                            )}
+                            {selectedInst.partners?.address && (
+                              <p className="text-sm text-gray-500">{selectedInst.partners.address}</p>
+                            )}
+                          </>
+                        ) : (
+                          <div className="mt-1">
+                            <p className="text-sm text-gray-900 font-semibold mb-1">Unassigned</p>
+                            <select
+                              disabled={isSubmitting}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleAssignPartnerFromDrawer(selectedInst.id, e.target.value);
+                                }
+                              }}
+                              defaultValue=""
+                              className="mt-1 block w-full pl-2 pr-8 py-1.5 text-xs border-gray-300 focus:outline-none focus:ring-acs-primary focus:border-acs-primary rounded-md border bg-white font-medium"
+                            >
+                              <option value="" disabled>+ Assign Partner...</option>
+                              {partners
+                                .filter(p => (p.type === 'PARTNER' || p.type === 'INSTALLATION_PARTNER') && p.status === 'ACTIVE')
+                                .map(p => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} {p.display_id ? `(${p.display_id})` : ''}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
                         )}
-                        <div className="mt-2">
-                          <p className="text-sm font-medium text-gray-500">Technician:</p>
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-gray-500">Assigned Technician:</p>
                           {selectedInst.partner_id ? (
                             <select
                               value={selectedInst.technician_id || ""}

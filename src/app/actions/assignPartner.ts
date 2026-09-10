@@ -16,41 +16,64 @@ export async function assignPartnerAction(installationId: string, partnerId: str
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, org_id')
     .eq('id', user.id)
     .single();
 
-  if (!profile || profile.role !== 'ACS_ADMIN') {
-    return { success: false, error: 'Unauthorized: Only ACS Admin can assign partners' };
+  if (!profile || (profile.role !== 'ACS_ADMIN' && profile.role !== 'OEM')) {
+    return { success: false, error: 'Unauthorized: Only ACS Admin or OEM can assign partners' };
   }
 
-  // 2. Fetch current state to avoid duplicate emails
-  const { data: existing } = await supabase
+  // 2. Fetch current installation details to verify ownership and avoid duplicate emails
+  const { data: existing, error: fetchErr } = await supabase
     .from('installations')
-    .select('partner_id')
+    .select('id, partner_id, oem_id, status')
     .eq('id', installationId)
     .single();
 
-  if (existing && existing.partner_id === partnerId) {
+  if (fetchErr || !existing) {
+    return { success: false, error: 'Installation not found' };
+  }
+
+  // OEM scoping check: OEM users can only assign partners for their own OEM installations
+  if (profile.role === 'OEM' && existing.oem_id !== profile.org_id) {
+    return { success: false, error: 'Unauthorized: Installation does not belong to your OEM organization' };
+  }
+
+  // 3. Verify selected partner organization is actually an active Installation Partner
+  const { data: partnerOrg } = await supabase
+    .from('organizations')
+    .select('id, type, status')
+    .eq('id', partnerId)
+    .single();
+
+  if (!partnerOrg || (partnerOrg.type !== 'PARTNER' && partnerOrg.type !== 'INSTALLATION_PARTNER') || partnerOrg.status !== 'ACTIVE') {
+    return { success: false, error: 'Invalid or inactive Installation Partner selected' };
+  }
+
+  if (existing.partner_id === partnerId) {
     return { success: true, message: 'Partner already assigned' };
   }
 
-  // 3. Assign the partner
+  // Preserve state machine: transition NEW to PARTNER_ASSIGNED, or preserve current state if already advanced
+  const newStatus = (!existing.status || existing.status === 'NEW') ? 'PARTNER_ASSIGNED' : existing.status;
+
+  // 4. Assign the partner
   const { error: updateError } = await supabase
     .from('installations')
     .update({ 
-      status: 'PARTNER_ASSIGNED', 
+      status: newStatus, 
       partner_id: partnerId,
       updated_at: new Date().toISOString()
     })
     .eq('id', installationId);
 
   if (updateError) {
-    console.error(`[Admin Assignment Error] Installation ${installationId}:`, updateError);
+    console.error(`[Assignment Error] Installation ${installationId}:`, updateError);
     return { success: false, error: 'Failed to assign partner due to a database error.' };
   }
 
-  // 4. Send Notifications Non-Blockingly
+  // 5. Send Notifications Non-Blockingly
   notifyPartnerAssigned(installationId, partnerId).catch(console.error);
   
   notifyOrganization(
@@ -62,6 +85,6 @@ export async function assignPartnerAction(installationId: string, partnerId: str
     installationId
   ).catch(console.error);
 
-  revalidatePath('/admin/installations');
+  revalidatePath('/', 'layout');
   return { success: true };
 }

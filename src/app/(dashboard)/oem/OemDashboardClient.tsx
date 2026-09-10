@@ -11,6 +11,7 @@ import { createClient } from '@/utils/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, BatteryCharging, X } from 'lucide-react';
 import { EvidenceManager } from '@/components/installations/EvidenceManager';
+import { assignPartnerAction } from '@/app/actions/assignPartner';
 
 interface Props {
   installations: any[];
@@ -36,6 +37,50 @@ export default function OemDashboardClient({
 
   const [selectedInst, setSelectedInst] = useState<any | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Active Partners for assignment
+  const [activePartners, setActivePartners] = useState<any[]>([]);
+  const [isAssigningPartner, setIsAssigningPartner] = useState(false);
+
+  useEffect(() => {
+    const fetchPartners = async () => {
+      const { data } = await supabase
+        .from('organizations')
+        .select('id, display_id, name, type, status')
+        .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
+        .eq('status', 'ACTIVE')
+        .order('name');
+      if (data) setActivePartners(data);
+    };
+    fetchPartners();
+  }, []);
+
+  const handleAssignPartner = async (id: string, partnerId: string) => {
+    setIsAssigningPartner(true);
+    const res = await assignPartnerAction(id, partnerId);
+    if (res.success) {
+      const { data: updatedInst } = await supabase
+        .from('installations')
+        .select(`
+          *,
+          customers:customer_id (id, display_id, name, phone, address, city),
+          dealers:dealer_id (id, display_id, name),
+          partners:partner_id (id, display_id, name, type, address),
+          technicians:technician_id (id, display_id, name, phone),
+          chargers:charger_id (id, display_id, serial_number, model)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (updatedInst) {
+        setSelectedInst(updatedInst);
+      }
+      router.refresh();
+    } else {
+      alert("Failed to assign partner: " + res.error);
+    }
+    setIsAssigningPartner(false);
+  };
 
   // Detail Modal state
   const [checklists, setChecklists] = useState<any[]>([]);
@@ -456,9 +501,34 @@ export default function OemDashboardClient({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs text-gray-500">Partner Organization</p>
-                        <p className="text-sm font-semibold text-gray-900">{selectedInst.partners?.name || 'Unassigned'}</p>
-                        {selectedInst.partners?.display_id && (
-                          <p className="text-xs text-gray-500 font-mono">{selectedInst.partners.display_id}</p>
+                        {selectedInst.partner_id ? (
+                          <>
+                            <p className="text-sm font-semibold text-gray-900">{selectedInst.partners?.name || 'Assigned'}</p>
+                            {selectedInst.partners?.display_id && (
+                              <p className="text-xs text-gray-500 font-mono">Partner ID: {selectedInst.partners.display_id}</p>
+                            )}
+                          </>
+                        ) : (
+                          <div className="mt-1">
+                            <p className="text-sm font-semibold text-gray-900 mb-1">Unassigned</p>
+                            <select
+                              disabled={isAssigningPartner}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleAssignPartner(selectedInst.id, e.target.value);
+                                }
+                              }}
+                              defaultValue=""
+                              className="block w-full text-xs rounded border-gray-300 shadow-sm border p-1.5 focus:border-[#243B36] focus:ring-[#243B36] bg-white text-gray-900 font-medium"
+                            >
+                              <option value="" disabled>+ Assign Partner...</option>
+                              {activePartners.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} {p.display_id ? `(${p.display_id})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         )}
                       </div>
                       <div>
