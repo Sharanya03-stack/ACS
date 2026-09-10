@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { notifyPartnerAssigned } from '@/lib/email/notifications';
 import { notifyOrganization } from '@/lib/notifications';
@@ -107,7 +108,13 @@ export async function getActivePartnersAction() {
     return { success: false, error: 'Unauthorized', data: [] };
   }
 
-  const { data, error } = await supabase
+  // Use service role admin client ONLY after user identity and role authorization succeed
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data, error } = await adminClient
     .from('organizations')
     .select('id, display_id, name, type, status')
     .eq('type', 'PARTNER')
@@ -122,4 +129,5 @@ export async function getActivePartnersAction() {
 
   return { success: true, data: data || [] };
 }
+
 
