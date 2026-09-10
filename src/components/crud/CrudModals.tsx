@@ -69,13 +69,35 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
   const [options, setOptions] = useState<{dealers: any[], customers: any[], installations: any[], vehicles: any[]}>({ dealers: [], customers: [], installations: [], vehicles: [] });
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [selectedDealerId, setSelectedDealerId] = useState<string>('');
+  const [dealerSearchQuery, setDealerSearchQuery] = useState<string>('');
+  const [isDealerDropdownOpen, setIsDealerDropdownOpen] = useState<boolean>(false);
 
   React.useEffect(() => {
     if (isOpen && ['customers', 'vehicles', 'chargers'].includes(page)) {
       const fetchOptions = async () => {
         const supabase = createClient();
+        
+        // Determine role & org_id for correct dealer query scoping
+        const { data: { user } } = await supabase.auth.getUser();
+        let currentRole = userRole || '';
+        let currentOrgId = '';
+        if (user) {
+          const { data: profile } = await supabase.from('profiles').select('role, org_id').eq('id', user.id).single();
+          if (profile) {
+            currentRole = profile.role;
+            currentOrgId = profile.org_id;
+          }
+        }
+
+        let dealerQuery = supabase.from('organizations').select('id, display_id, name').eq('type', 'DEALER').eq('status', 'ACTIVE').order('name');
+        if (currentRole === 'OEM' || currentRole === 'oem') {
+          if (currentOrgId) {
+            dealerQuery = dealerQuery.eq('parent_org_id', currentOrgId);
+          }
+        }
+
         const [dRes, cRes, vRes, chargersRes] = await Promise.all([
-          supabase.from('organizations').select('id, name').eq('type', 'DEALER').eq('status', 'ACTIVE'),
+          dealerQuery,
           supabase.from('customers').select('id, display_id, name, phone, dealer_id'),
           supabase.from('vehicles').select('id, display_id, vin, model, customer_id'),
           page === 'chargers' ? supabase.from('chargers').select('vehicle_id') : Promise.resolve({ data: [] })
@@ -92,7 +114,16 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
       };
       fetchOptions();
     }
-  }, [isOpen, page]);
+  }, [isOpen, page, userRole]);
+
+  const filteredDealers = React.useMemo(() => {
+    if (!dealerSearchQuery.trim()) return options.dealers;
+    const q = dealerSearchQuery.toLowerCase();
+    return options.dealers.filter(d => 
+      d.name?.toLowerCase().includes(q) || 
+      d.display_id?.toLowerCase().includes(q)
+    );
+  }, [options.dealers, dealerSearchQuery]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -118,6 +149,8 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
       setIsOpen(false);
       setSelectedCustomerId('');
       setSelectedDealerId('');
+      setDealerSearchQuery('');
+      setIsDealerDropdownOpen(false);
     }
   };
 
@@ -152,7 +185,7 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
         Add {entityName}
       </button>
 
-      <Modal isOpen={isOpen} onClose={() => { setIsOpen(false); setSelectedCustomerId(''); setSelectedDealerId(''); }} title={`Add ${entityName}`}>
+      <Modal isOpen={isOpen} onClose={() => { setIsOpen(false); setSelectedCustomerId(''); setSelectedDealerId(''); setDealerSearchQuery(''); setIsDealerDropdownOpen(false); }} title={`Add ${entityName}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Common Fields for Orgs/Techs */}
           {!['customers', 'vehicles', 'chargers'].includes(page) && (
@@ -176,8 +209,8 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
             </>
           )}
 
-          {/* Dealerships */}
-          {page === 'dealerships' && (
+          {/* Dealerships - Parent OEM selector is only shown for ACS_ADMIN */}
+          {page === 'dealerships' && userRole !== 'OEM' && userRole !== 'oem' && (
             <div>
               <label className="block text-sm font-medium text-gray-700">Parent OEM *</label>
               <select required name="parentOrgId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
@@ -224,12 +257,72 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
                 <label className="block text-sm font-medium text-gray-700">Email</label>
                 <input type="email" name="email" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Dealer (if Admin/OEM)</label>
-                <select name="dealerId" value={selectedDealerId} onChange={e => setSelectedDealerId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
-                  <option value="">Select Dealer...</option>
-                  {options.dealers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
+              <div className="relative">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dealer (if Admin/OEM)</label>
+                <input type="hidden" name="dealerId" value={selectedDealerId} />
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    placeholder="Search dealer name or DLR-XXXXXX..."
+                    value={dealerSearchQuery}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setDealerSearchQuery(val);
+                      if (selectedDealerId) {
+                        const selectedDealer = options.dealers.find(d => d.id === selectedDealerId);
+                        const selectedLabel = selectedDealer ? `${selectedDealer.name}${selectedDealer.display_id ? ` — ${selectedDealer.display_id}` : ''}` : '';
+                        if (val !== selectedLabel) {
+                          setSelectedDealerId('');
+                        }
+                      }
+                      setIsDealerDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsDealerDropdownOpen(true)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 pr-8 focus:border-[#243B36] focus:ring-[#243B36] text-sm bg-white"
+                  />
+                  {(selectedDealerId || dealerSearchQuery) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDealerId('');
+                        setDealerSearchQuery('');
+                        setIsDealerDropdownOpen(false);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                      title="Clear selection"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {isDealerDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsDealerDropdownOpen(false)} />
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto z-20">
+                      {filteredDealers.length === 0 ? (
+                        <div className="p-3 text-xs text-gray-500 text-center">No matching dealers found</div>
+                      ) : (
+                        filteredDealers.map(d => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDealerId(d.id);
+                              const label = `${d.name}${d.display_id ? ` — ${d.display_id}` : ''}`;
+                              setDealerSearchQuery(label);
+                              setIsDealerDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex justify-between items-center ${selectedDealerId === d.id ? 'bg-gray-50 font-bold' : ''}`}
+                          >
+                            <span className="font-medium text-gray-900">{d.name}</span>
+                            {d.display_id && <span className="text-gray-500 font-mono">{d.display_id}</span>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">City</label>

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AddOrderButton } from '@/components/installations/AddOrderButton';
+import { ExportCSVButton } from '@/app/(dashboard)/admin/reports/ExportCSVButton';
 import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import { createClient } from '@/utils/supabase/client';
@@ -166,6 +167,7 @@ export default function OemDashboardClient({
             <RefreshCw className={`h-4 w-4 text-gray-500 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </button>
+          <ExportCSVButton />
           <AddOrderButton />
         </div>
       </div>

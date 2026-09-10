@@ -485,36 +485,6 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
           </div>
         </div>
       )}
-
-      {showUploadMenu && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
-            <div className="p-4 border-b">
-              <h3 className="text-lg font-bold text-gray-900">Add Photos</h3>
-            </div>
-            <div className="p-4 flex flex-col gap-3">
-              <button
-                onClick={handleTakePhoto}
-                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
-              >
-                <Camera className="w-5 h-5 mr-2 text-gray-500" /> Take Photo
-              </button>
-              <button
-                onClick={handleGallery}
-                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
-              >
-                <ImageIcon className="w-5 h-5 mr-2 text-gray-500" /> Choose from Gallery
-              </button>
-              <button
-                onClick={() => setShowUploadMenu(null)}
-                className="w-full flex items-center justify-center px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-lg mt-2 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

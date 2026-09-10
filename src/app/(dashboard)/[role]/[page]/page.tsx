@@ -2,6 +2,7 @@ import React from 'react';
 import { createClient } from '@/utils/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { AddEntityButton, RowActions } from '@/components/crud/CrudModals';
+import { ExportCSVButton } from '@/app/(dashboard)/admin/reports/ExportCSVButton';
 import { CustomerNameCell } from '@/components/customers/CustomerDetailsDrawer';
 import { formatPowerRating } from '@/utils/formatters';
 
@@ -157,9 +158,14 @@ export default async function GenericListPage(props: { params: Promise<{ role: s
           <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
           <p className="mt-1 text-sm text-gray-500">View and manage {title.toLowerCase()} in the system.</p>
         </div>
-        {!(role === 'admin' && page === 'technicians') && (
-          <AddEntityButton page={page} oems={parentOrgs} userRole={role} />
-        )}
+        <div className="flex items-center gap-3">
+          {['installations', 'requests', 'new', 'active', 'scheduled', 'completed', 'revisits', 'upcoming'].includes(page) && (
+            <ExportCSVButton />
+          )}
+          {!(role === 'admin' && page === 'technicians') && (
+            <AddEntityButton page={page} oems={parentOrgs} userRole={role} />
+          )}
+        </div>
       </div>
 
       <div className="bg-white shadow-md rounded-xl overflow-hidden border border-gray-200">

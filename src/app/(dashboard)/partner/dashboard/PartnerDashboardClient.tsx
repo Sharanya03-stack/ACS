@@ -121,7 +121,7 @@ export default function PartnerDashboardClient({
             
             {installations.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500 text-sm">
                   No installations assigned to your organization.
                 </td>
               </tr>
