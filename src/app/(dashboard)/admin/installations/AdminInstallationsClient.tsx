@@ -11,7 +11,7 @@ import { Installation, Customer } from '@/lib/types';
 import { reviewInstallation } from '@/app/actions/reviewInstallation';
 import Image from 'next/image';
 import { EvidenceManager } from '@/components/installations/EvidenceManager';
-import { BatteryCharging, Filter, ChevronLeft, ChevronRight, X, User } from 'lucide-react';
+import { BatteryCharging, Filter, ChevronLeft, ChevronRight, X, User, Search } from 'lucide-react';
 import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,6 +37,21 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
   const [assigningPartnerInst, setAssigningPartnerInst] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [partnerSearchQuery, setPartnerSearchQuery] = useState("");
+  const [isPartnerDropdownOpen, setIsPartnerDropdownOpen] = useState(false);
+
+  const activePartnersList = React.useMemo(() => {
+    return partners.filter(p => p.type === 'PARTNER' && (p.status === 'ACTIVE' || !p.status));
+  }, [partners]);
+
+  const filteredPartnersList = React.useMemo(() => {
+    if (!partnerSearchQuery.trim()) return activePartnersList;
+    const q = partnerSearchQuery.toLowerCase();
+    return activePartnersList.filter(p =>
+      p.name?.toLowerCase().includes(q) ||
+      p.display_id?.toLowerCase().includes(q)
+    );
+  }, [activePartnersList, partnerSearchQuery]);
   
   // New state for Review Workflow
   const [checklists, setChecklists] = useState<any[]>([]);
@@ -503,27 +518,64 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                             )}
                           </>
                         ) : (
-                          <div className="mt-1">
+                          <div className="mt-1 relative">
                             <p className="text-sm text-gray-900 font-semibold mb-1">Unassigned</p>
-                            <select
-                              disabled={isSubmitting}
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  handleAssignPartnerFromDrawer(selectedInst.id, e.target.value);
-                                }
-                              }}
-                              defaultValue=""
-                              className="mt-1 block w-full pl-2 pr-8 py-1.5 text-xs border-gray-300 focus:outline-none focus:ring-acs-primary focus:border-acs-primary rounded-md border bg-white font-medium"
-                            >
-                              <option value="" disabled>+ Assign Partner...</option>
-                              {partners
-                                .filter(p => (p.type === 'PARTNER' || p.type === 'INSTALLATION_PARTNER') && p.status === 'ACTIVE')
-                                .map(p => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.name} {p.display_id ? `(${p.display_id})` : ''}
-                                  </option>
-                                ))}
-                            </select>
+                            <div className="relative flex items-center">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                              <input
+                                type="text"
+                                placeholder="Search installation partner..."
+                                value={partnerSearchQuery}
+                                onChange={(e) => {
+                                  setPartnerSearchQuery(e.target.value);
+                                  setIsPartnerDropdownOpen(true);
+                                }}
+                                onFocus={() => setIsPartnerDropdownOpen(true)}
+                                disabled={isSubmitting}
+                                className="mt-1 block w-full pl-8 pr-8 py-1.5 text-xs rounded-md border-gray-300 shadow-sm border focus:border-[#243B36] focus:ring-[#243B36] bg-white text-gray-900 font-medium"
+                              />
+                              {partnerSearchQuery && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPartnerSearchQuery('');
+                                    setIsPartnerDropdownOpen(false);
+                                  }}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                                  title="Clear search"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            {isPartnerDropdownOpen && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setIsPartnerDropdownOpen(false)} />
+                                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-20">
+                                  {filteredPartnersList.length === 0 ? (
+                                    <div className="p-3 text-xs text-gray-500 text-center">No matching active partners found</div>
+                                  ) : (
+                                    filteredPartnersList.map(p => (
+                                      <button
+                                        key={p.id}
+                                        type="button"
+                                        onClick={() => {
+                                          const label = `${p.name}${p.display_id ? ` — ${p.display_id}` : ''}`;
+                                          setPartnerSearchQuery(label);
+                                          setIsPartnerDropdownOpen(false);
+                                          handleAssignPartnerFromDrawer(selectedInst.id, p.id);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex justify-between items-center border-b last:border-b-0 border-gray-50"
+                                      >
+                                        <span className="font-medium text-gray-900">{p.name}</span>
+                                        {p.display_id && <span className="text-gray-500 font-mono ml-2">{p.display_id}</span>}
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                         <div className="mt-4">

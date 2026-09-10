@@ -26,7 +26,7 @@ export default async function AdminInstallationsPage({
     { data: profiles }
   ] = await Promise.all([
     getInstallations(supabase, { page, search, status, category, oem_id, dealer_id, partner_id, technician_id }),
-    supabase.from('organizations').select('id, name, type'),
+    supabase.from('organizations').select('id, display_id, name, type, status'),
     supabase.from('profiles').select('id, name, role, org_id, status')
   ]);
 

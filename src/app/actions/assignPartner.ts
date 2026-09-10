@@ -88,3 +88,38 @@ export async function assignPartnerAction(installationId: string, partnerId: str
   revalidatePath('/', 'layout');
   return { success: true };
 }
+
+export async function getActivePartnersAction() {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Unauthorized', data: [] };
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || (profile.role !== 'ACS_ADMIN' && profile.role !== 'OEM')) {
+    return { success: false, error: 'Unauthorized', data: [] };
+  }
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, display_id, name, type, status')
+    .eq('type', 'PARTNER')
+    .eq('status', 'ACTIVE')
+    .is('deleted_at', null)
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching active partners:', error);
+    return { success: false, error: error.message, data: [] };
+  }
+
+  return { success: true, data: data || [] };
+}
+

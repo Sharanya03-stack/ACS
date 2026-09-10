@@ -9,9 +9,9 @@ import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import { createClient } from '@/utils/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, BatteryCharging, X } from 'lucide-react';
+import { RefreshCw, BatteryCharging, X, Search } from 'lucide-react';
 import { EvidenceManager } from '@/components/installations/EvidenceManager';
-import { assignPartnerAction } from '@/app/actions/assignPartner';
+import { assignPartnerAction, getActivePartnersAction } from '@/app/actions/assignPartner';
 
 interface Props {
   installations: any[];
@@ -41,16 +41,32 @@ export default function OemDashboardClient({
   // Active Partners for assignment
   const [activePartners, setActivePartners] = useState<any[]>([]);
   const [isAssigningPartner, setIsAssigningPartner] = useState(false);
+  const [partnerSearchQuery, setPartnerSearchQuery] = useState("");
+  const [isPartnerDropdownOpen, setIsPartnerDropdownOpen] = useState(false);
+
+  const filteredPartnersList = React.useMemo(() => {
+    if (!partnerSearchQuery.trim()) return activePartners;
+    const q = partnerSearchQuery.toLowerCase();
+    return activePartners.filter(p =>
+      p.name?.toLowerCase().includes(q) ||
+      p.display_id?.toLowerCase().includes(q)
+    );
+  }, [activePartners, partnerSearchQuery]);
 
   useEffect(() => {
     const fetchPartners = async () => {
-      const { data } = await supabase
-        .from('organizations')
-        .select('id, display_id, name, type, status')
-        .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
-        .eq('status', 'ACTIVE')
-        .order('name');
-      if (data) setActivePartners(data);
+      const res = await getActivePartnersAction();
+      if (res.success && res.data) {
+        setActivePartners(res.data);
+      } else {
+        const { data } = await supabase
+          .from('organizations')
+          .select('id, display_id, name, type, status')
+          .eq('type', 'PARTNER')
+          .eq('status', 'ACTIVE')
+          .order('name');
+        if (data) setActivePartners(data);
+      }
     };
     fetchPartners();
   }, []);
@@ -509,25 +525,64 @@ export default function OemDashboardClient({
                             )}
                           </>
                         ) : (
-                          <div className="mt-1">
+                          <div className="mt-1 relative">
                             <p className="text-sm font-semibold text-gray-900 mb-1">Unassigned</p>
-                            <select
-                              disabled={isAssigningPartner}
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  handleAssignPartner(selectedInst.id, e.target.value);
-                                }
-                              }}
-                              defaultValue=""
-                              className="block w-full text-xs rounded border-gray-300 shadow-sm border p-1.5 focus:border-[#243B36] focus:ring-[#243B36] bg-white text-gray-900 font-medium"
-                            >
-                              <option value="" disabled>+ Assign Partner...</option>
-                              {activePartners.map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} {p.display_id ? `(${p.display_id})` : ''}
-                                </option>
-                              ))}
-                            </select>
+                            <div className="relative flex items-center">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                              <input
+                                type="text"
+                                placeholder="Search installation partner..."
+                                value={partnerSearchQuery}
+                                onChange={(e) => {
+                                  setPartnerSearchQuery(e.target.value);
+                                  setIsPartnerDropdownOpen(true);
+                                }}
+                                onFocus={() => setIsPartnerDropdownOpen(true)}
+                                disabled={isAssigningPartner}
+                                className="block w-full pl-8 pr-8 py-1.5 text-xs rounded border-gray-300 shadow-sm border focus:border-[#243B36] focus:ring-[#243B36] bg-white text-gray-900 font-medium"
+                              />
+                              {partnerSearchQuery && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPartnerSearchQuery('');
+                                    setIsPartnerDropdownOpen(false);
+                                  }}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                                  title="Clear search"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            {isPartnerDropdownOpen && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setIsPartnerDropdownOpen(false)} />
+                                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-20">
+                                  {filteredPartnersList.length === 0 ? (
+                                    <div className="p-3 text-xs text-gray-500 text-center">No matching active partners found</div>
+                                  ) : (
+                                    filteredPartnersList.map(p => (
+                                      <button
+                                        key={p.id}
+                                        type="button"
+                                        onClick={() => {
+                                          const label = `${p.name}${p.display_id ? ` — ${p.display_id}` : ''}`;
+                                          setPartnerSearchQuery(label);
+                                          setIsPartnerDropdownOpen(false);
+                                          handleAssignPartner(selectedInst.id, p.id);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex justify-between items-center border-b last:border-b-0 border-gray-50"
+                                      >
+                                        <span className="font-medium text-gray-900">{p.name}</span>
+                                        {p.display_id && <span className="text-gray-500 font-mono ml-2">{p.display_id}</span>}
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
