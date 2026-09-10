@@ -155,12 +155,29 @@ export async function createCharger(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Unauthorized' };
 
-  const vehicleId = formData.get('vehicleId');
-  if (vehicleId) {
-    const { data: existing } = await supabase.from('chargers').select('id').eq('vehicle_id', vehicleId).limit(1);
-    if (existing && existing.length > 0) {
-      return { error: 'This vehicle already has a charger assigned.' };
-    }
+  const vehicleId = (formData.get('vehicleId') || formData.get('vehicle_id')) as string;
+  if (!vehicleId) {
+    return { error: 'Vehicle is required' };
+  }
+
+  // Fetch vehicle to get authoritative customer_id and verify existence
+  const { data: vehicle, error: vehicleErr } = await supabase
+    .from('vehicles')
+    .select('id, customer_id')
+    .eq('id', vehicleId)
+    .single();
+
+  if (vehicleErr || !vehicle) {
+    return { error: 'Invalid or non-existent vehicle selected.' };
+  }
+
+  if (!vehicle.customer_id) {
+    return { error: 'The selected vehicle has no associated customer. Please assign a customer to the vehicle first.' };
+  }
+
+  const { data: existing } = await supabase.from('chargers').select('id').eq('vehicle_id', vehicleId).limit(1);
+  if (existing && existing.length > 0) {
+    return { error: 'This vehicle already has a charger assigned.' };
   }
 
   const { data, error } = await supabase.from('chargers').insert({
@@ -168,7 +185,7 @@ export async function createCharger(formData: FormData) {
     model: formData.get('model'),
     power_rating: parseFloat(formData.get('power_rating') as string) || 7.4,
     vehicle_id: vehicleId,
-    customer_id: formData.get('customerId'),
+    customer_id: vehicle.customer_id,
     supplied_date: formData.get('supplied_date') || new Date().toISOString().split('T')[0],
     warranty_months: parseInt(formData.get('warranty_months') as string) || null,
     warranty_start_date: formData.get('warranty_start_date') || null,
@@ -176,14 +193,15 @@ export async function createCharger(formData: FormData) {
   }).select().single();
 
   if (error) {
-      if (error.code === '23505') {
-        if (error.message && error.message.includes('serial_number')) {
-          return { error: 'A charger with this serial number already exists.' };
-        }
-        return { error: 'This vehicle already has a charger assigned.' };
+    if (error.code === '23505') {
+      if (error.message && error.message.includes('serial_number')) {
+        return { error: 'A charger with this serial number already exists.' };
       }
-      return { error: error.message };
+      return { error: 'This vehicle already has a charger assigned.' };
     }
+    return { error: error.message };
+  }
+
   revalidatePath('/', 'layout');
   return { success: true, id: data?.id, data };
 }
