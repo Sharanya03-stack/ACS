@@ -64,10 +64,16 @@ export async function createTechnician(formData: FormData) {
     });
 
     if (authError) {
-      if (authError.message.includes('already registered')) {
-         return { error: 'Email already registered' };
+      const msg = authError.message.toLowerCase();
+      const code = (authError as any).code;
+
+      if (code === 'email_exists' || (msg.includes('email') && msg.includes('already registered'))) {
+        return { error: 'Email already registered' };
       }
-      throw authError;
+      if (code === 'phone_exists' || (msg.includes('phone') && msg.includes('already registered'))) {
+        return { error: 'Phone number already registered to another user' };
+      }
+      return { error: authError.message };
     }
 
     if (!authData.user) {
