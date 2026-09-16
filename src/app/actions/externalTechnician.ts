@@ -161,6 +161,7 @@ export async function externalUploadPhoto(formData: FormData) {
 
   const { error: dbError } = await supabase.from('installation_photos').insert({
     installation_id: inst.id,
+    uploaded_by: inst.technician_id,
     category: category,
     storage_path: uploadData.path,
     uploaded_at: new Date().toISOString()
@@ -193,6 +194,7 @@ export async function externalUploadDocument(formData: FormData) {
 
   const { error: dbError } = await supabase.from('installation_photos').insert({
     installation_id: inst.id,
+    uploaded_by: inst.technician_id,
     category: 'INSTALLATION_PDF',
     storage_path: uploadData.path,
     file_type: file.type,
