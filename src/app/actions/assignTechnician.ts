@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { notifyTechnicianAssigned } from '@/lib/email/notifications';
 
 export async function assignTechnician(installationId: string, technicianId: string) {
   const supabase = await createClient();
@@ -75,6 +76,9 @@ export async function assignTechnician(installationId: string, technicianId: str
     console.error("Error updating technician:", updateError);
     return { error: 'Failed to assign technician' };
   }
+
+  // Send email notification non-blockingly
+  notifyTechnicianAssigned(installationId, technicianId).catch(console.error);
 
   // 7. Create Audit Log
   const { error: logError } = await supabase
