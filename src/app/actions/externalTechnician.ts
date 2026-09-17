@@ -164,6 +164,8 @@ export async function externalUploadPhoto(formData: FormData) {
     uploaded_by: inst.technician_id,
     category: category,
     storage_path: uploadData.path,
+    file_type: file.type,
+    file_size: file.size,
     uploaded_at: new Date().toISOString()
   });
 
