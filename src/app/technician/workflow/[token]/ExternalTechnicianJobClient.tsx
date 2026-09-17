@@ -63,14 +63,22 @@ export default function ExternalTechnicianJobClient({
   const router = useRouter();
 
   const photoSections: { id: string, title: string, description: string }[] = [];
-  if (job.category === 'INSTALLATION_ONLY' || job.category === 'INSTALLATION_EARTHING') {
+  if (
+    job.category === 'INSTALLATION_ONLY' ||
+    job.category === 'INSTALLATION_EARTHING' ||
+    job.category === 'INSTALLATION_AND_EARTHING'
+  ) {
     photoSections.push({
       id: 'INSTALLATION_PHOTO',
       title: 'Installation Photos',
       description: 'Upload photos showing the completed charger installation.'
     });
   }
-  if (job.category === 'INSTALLATION_EARTHING') {
+  if (
+    job.category === 'INSTALLATION_EARTHING' ||
+    job.category === 'INSTALLATION_AND_EARTHING' ||
+    job.category === 'EARTHING_ONLY'
+  ) {
     photoSections.push({
       id: 'EARTHING_PHOTO',
       title: 'Earthing Photos',
