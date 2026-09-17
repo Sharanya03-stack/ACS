@@ -240,8 +240,27 @@ export async function externalSubmitInstallation(token: string) {
 
   const { data: photos } = await supabase.from('installation_photos').select('category').eq('installation_id', inst.id);
   
-  let requiredCategories = ['INSTALLATION_PHOTO'];
-  if (inst.category === 'INSTALLATION_EARTHING') requiredCategories.push('EARTHING_PHOTO');
+  let requiredCategories: string[] = [];
+
+  if (
+    inst.category === 'INSTALLATION_ONLY' ||
+    inst.category === 'INSTALLATION_EARTHING' ||
+    inst.category === 'INSTALLATION_AND_EARTHING'
+  ) {
+    requiredCategories.push('INSTALLATION_PHOTO');
+  }
+
+  if (
+    inst.category === 'INSTALLATION_EARTHING' ||
+    inst.category === 'INSTALLATION_AND_EARTHING' ||
+    inst.category === 'EARTHING_ONLY'
+  ) {
+    requiredCategories.push('EARTHING_PHOTO');
+  }
+
+  if (requiredCategories.length === 0) {
+    requiredCategories.push('GENERAL_PHOTO');
+  }
   
   for (const reqCat of requiredCategories) {
     if (!photos?.some(p => p.category === reqCat)) {
