@@ -147,6 +147,10 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
     } else if (result.success) {
       if (page === 'partners') {
         toast.success('Partner account created successfully! The Partner can now log in using their Contact Email and Temporary Password.', { duration: 6000 });
+      } else if (page === 'oems') {
+        toast.success('OEM account created successfully! The OEM user can now log in using their Contact Email and Temporary Password.', { duration: 6000 });
+      } else if (page === 'dealerships') {
+        toast.success('Dealership account created successfully! The Dealership user can now log in using their Contact Email and Temporary Password.', { duration: 6000 });
       } else {
         toast.success('Created successfully!');
       }
@@ -235,11 +239,11 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
               </div>
               {(page !== 'technicians') && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Contact Email {page === 'partners' ? '*' : ''}</label>
-                  <input required={page === 'partners'} type="email" name="contactEmail" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                  <label className="block text-sm font-medium text-gray-700">Contact Email {['partners', 'oems', 'dealerships'].includes(page) ? '*' : ''}</label>
+                  <input required={['partners', 'oems', 'dealerships'].includes(page)} type="email" name="contactEmail" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
                 </div>
               )}
-              {page === 'partners' && (
+              {['partners', 'oems', 'dealerships'].includes(page) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Temporary Password *</label>
                   <input required type="password" name="password" minLength={6} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />

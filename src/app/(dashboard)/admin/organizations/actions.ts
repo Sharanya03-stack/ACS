@@ -53,38 +53,120 @@ function getAdminClient() {
 // --------------------------------------------------------
 
 export async function createOEM(formData: FormData) {
+  let oemOrgId: string | null = null;
+  let authUserId: string | null = null;
+  const adminClient = getAdminClient();
+
   try {
     await requireAdmin();
-    const adminClient = getAdminClient();
 
     const name = formData.get('name') as string;
     const contactEmail = formData.get('contactEmail') as string;
     const contactPhone = formData.get('contactPhone') as string;
+    const address = formData.get('address') as string;
+    const password = formData.get('password') as string;
 
     if (contactPhone && !isValidPhone(contactPhone)) {
       return { error: 'Invalid contact phone number format' };
     }
-    const address = formData.get('address') as string;
 
     if (!name || name.trim() === '') {
       return { error: 'OEM name is required' };
     }
 
-    const { error } = await adminClient.from('organizations').insert({
-      type: 'OEM',
-      name,
-      contact_email: contactEmail || null,
-      contact_phone: contactPhone || null,
-      address: address || null,
-      status: 'ACTIVE',
-      parent_org_id: null
+    if (!contactEmail || contactEmail.trim() === '') {
+      return { error: 'Contact email is required to create an OEM login' };
+    }
+
+    if (!password || password.length < 6) {
+      return { error: 'Password of at least 6 characters is required' };
+    }
+
+    // Step 1: Create OEM Organization
+    const { data: orgData, error: orgError } = await adminClient
+      .from('organizations')
+      .insert({
+        type: 'OEM',
+        name: name.trim(),
+        contact_email: contactEmail.trim(),
+        contact_phone: contactPhone ? contactPhone.trim() : null,
+        address: address ? address.trim() : null,
+        status: 'ACTIVE',
+        parent_org_id: null
+      })
+      .select('id')
+      .single();
+
+    if (orgError || !orgData) {
+      return { error: orgError?.message || 'Failed to create OEM organization' };
+    }
+
+    oemOrgId = orgData.id;
+
+    // Step 2: Create Auth User
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+      email: contactEmail.trim(),
+      password: password,
+      email_confirm: true,
+      phone: contactPhone ? contactPhone.trim() : undefined,
     });
 
-    if (error) throw error;
-    
+    if (authError) {
+      if (oemOrgId) {
+        try { await adminClient.from('organizations').delete().eq('id', oemOrgId); } catch (_) {}
+      }
+
+      const msg = authError.message.toLowerCase();
+      const code = (authError as any).code;
+
+      if (code === 'email_exists' || (msg.includes('email') && msg.includes('already registered'))) {
+        return { error: 'Email already registered' };
+      }
+      if (code === 'phone_exists' || (msg.includes('phone') && msg.includes('already registered'))) {
+        return { error: 'Phone number already registered to another user' };
+      }
+      return { error: authError.message || 'Failed to create OEM login' };
+    }
+
+    if (!authData.user) {
+      if (oemOrgId) {
+        try { await adminClient.from('organizations').delete().eq('id', oemOrgId); } catch (_) {}
+      }
+      return { error: 'Failed to create OEM login' };
+    }
+
+    authUserId = authData.user.id;
+
+    // Step 3: Create Profile
+    const { error: profileError } = await adminClient.from('profiles').insert({
+      id: authUserId,
+      role: 'OEM',
+      org_id: oemOrgId,
+      name: name.trim(),
+      phone: contactPhone ? contactPhone.trim() : null,
+      address: address ? address.trim() : null,
+      status: 'ACTIVE'
+    });
+
+    if (profileError) {
+      if (authUserId) {
+        try { await adminClient.auth.admin.deleteUser(authUserId); } catch (_) {}
+      }
+      if (oemOrgId) {
+        try { await adminClient.from('organizations').delete().eq('id', oemOrgId); } catch (_) {}
+      }
+      return { error: profileError.message || 'Failed to create OEM profile' };
+    }
+
     revalidatePath('/admin/oems');
     return { success: true };
   } catch (err: any) {
+    if (authUserId) {
+      try { await adminClient.auth.admin.deleteUser(authUserId); } catch (_) {}
+    }
+    if (oemOrgId) {
+      try { await adminClient.from('organizations').delete().eq('id', oemOrgId); } catch (_) {}
+    }
     return { error: err.message || 'Failed to create OEM' };
   }
 }
@@ -155,13 +237,16 @@ export async function deactivateOrganization(id: string) {
 // --------------------------------------------------------
 
 export async function createDealer(formData: FormData) {
+  let dealerOrgId: string | null = null;
+  let authUserId: string | null = null;
+  const adminClient = getAdminClient();
+
   try {
     const { role, org_id } = await requireAdminOrOEM();
-    const adminClient = getAdminClient();
 
     const name = formData.get('name') as string;
     let parentOrgId = formData.get('parentOrgId') as string;
-    
+
     if (role === 'OEM') {
       if (!org_id) return { error: 'OEM organization ID is missing' };
       parentOrgId = org_id;
@@ -170,10 +255,7 @@ export async function createDealer(formData: FormData) {
     const contactEmail = formData.get('contactEmail') as string;
     const contactPhone = formData.get('contactPhone') as string;
     const address = formData.get('address') as string;
-
-    if (contactPhone && !isValidPhone(contactPhone)) {
-      return { error: 'Invalid contact phone number format' };
-    }
+    const password = formData.get('password') as string;
 
     if (contactPhone && !isValidPhone(contactPhone)) {
       return { error: 'Invalid contact phone number format' };
@@ -182,28 +264,106 @@ export async function createDealer(formData: FormData) {
     if (!name || name.trim() === '') return { error: 'Dealer name is required' };
     if (!parentOrgId) return { error: 'Parent OEM is required' };
 
-    // Verify OEM exists and is active
+    if (!contactEmail || contactEmail.trim() === '') {
+      return { error: 'Contact email is required to create a Dealership login' };
+    }
+
+    if (!password || password.length < 6) {
+      return { error: 'Password of at least 6 characters is required' };
+    }
+
+    // Verify parent OEM exists and is active
     const { data: oem } = await adminClient.from('organizations').select('type, status').eq('id', parentOrgId).single();
     if (!oem || oem.type !== 'OEM' || oem.status !== 'ACTIVE') {
       return { error: 'Invalid or inactive parent OEM' };
     }
 
-    const { error } = await adminClient.from('organizations').insert({
-      type: 'DEALER',
-      name,
-      contact_email: contactEmail || null,
-      contact_phone: contactPhone || null,
-      address: address || null,
-      status: 'ACTIVE',
-      parent_org_id: parentOrgId
+    // Step 1: Create Dealership Organization
+    const { data: orgData, error: orgError } = await adminClient
+      .from('organizations')
+      .insert({
+        type: 'DEALER',
+        name: name.trim(),
+        contact_email: contactEmail.trim(),
+        contact_phone: contactPhone ? contactPhone.trim() : null,
+        address: address ? address.trim() : null,
+        status: 'ACTIVE',
+        parent_org_id: parentOrgId
+      })
+      .select('id')
+      .single();
+
+    if (orgError || !orgData) {
+      return { error: orgError?.message || 'Failed to create Dealership organization' };
+    }
+
+    dealerOrgId = orgData.id;
+
+    // Step 2: Create Auth User
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+      email: contactEmail.trim(),
+      password: password,
+      email_confirm: true,
+      phone: contactPhone ? contactPhone.trim() : undefined,
     });
 
-    if (error) throw error;
-    
+    if (authError) {
+      if (dealerOrgId) {
+        try { await adminClient.from('organizations').delete().eq('id', dealerOrgId); } catch (_) {}
+      }
+
+      const msg = authError.message.toLowerCase();
+      const code = (authError as any).code;
+
+      if (code === 'email_exists' || (msg.includes('email') && msg.includes('already registered'))) {
+        return { error: 'Email already registered' };
+      }
+      if (code === 'phone_exists' || (msg.includes('phone') && msg.includes('already registered'))) {
+        return { error: 'Phone number already registered to another user' };
+      }
+      return { error: authError.message || 'Failed to create Dealership login' };
+    }
+
+    if (!authData.user) {
+      if (dealerOrgId) {
+        try { await adminClient.from('organizations').delete().eq('id', dealerOrgId); } catch (_) {}
+      }
+      return { error: 'Failed to create Dealership login' };
+    }
+
+    authUserId = authData.user.id;
+
+    // Step 3: Create Profile
+    const { error: profileError } = await adminClient.from('profiles').insert({
+      id: authUserId,
+      role: 'DEALER',
+      org_id: dealerOrgId,
+      name: name.trim(),
+      phone: contactPhone ? contactPhone.trim() : null,
+      address: address ? address.trim() : null,
+      status: 'ACTIVE'
+    });
+
+    if (profileError) {
+      if (authUserId) {
+        try { await adminClient.auth.admin.deleteUser(authUserId); } catch (_) {}
+      }
+      if (dealerOrgId) {
+        try { await adminClient.from('organizations').delete().eq('id', dealerOrgId); } catch (_) {}
+      }
+      return { error: profileError.message || 'Failed to create Dealership profile' };
+    }
+
     revalidatePath('/admin/dealerships');
     revalidatePath('/oem/dealerships');
     return { success: true };
   } catch (err: any) {
+    if (authUserId) {
+      try { await adminClient.auth.admin.deleteUser(authUserId); } catch (_) {}
+    }
+    if (dealerOrgId) {
+      try { await adminClient.from('organizations').delete().eq('id', dealerOrgId); } catch (_) {}
+    }
     return { error: err.message || 'Failed to create Dealership' };
   }
 }
