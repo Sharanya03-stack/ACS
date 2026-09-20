@@ -145,7 +145,11 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
     if (result.error) {
       toast.error(result.error);
     } else if (result.success) {
-      toast.success('Created successfully!');
+      if (page === 'partners') {
+        toast.success('Partner account created successfully! The Partner can now log in using their Contact Email and Temporary Password.', { duration: 6000 });
+      } else {
+        toast.success('Created successfully!');
+      }
       setIsOpen(false);
       setSelectedCustomerId('');
       setSelectedDealerId('');
@@ -231,8 +235,14 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
               </div>
               {(page !== 'technicians') && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Contact Email</label>
-                  <input type="email" name="contactEmail" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                  <label className="block text-sm font-medium text-gray-700">Contact Email {page === 'partners' ? '*' : ''}</label>
+                  <input required={page === 'partners'} type="email" name="contactEmail" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                </div>
+              )}
+              {page === 'partners' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Temporary Password *</label>
+                  <input required type="password" name="password" minLength={6} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
                 </div>
               )}
               <div>

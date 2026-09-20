@@ -269,36 +269,122 @@ export async function updateDealer(id: string, formData: FormData) {
 // --------------------------------------------------------
 
 export async function createPartner(formData: FormData) {
+  let partnerOrgId: string | null = null;
+  let authUserId: string | null = null;
+  const adminClient = getAdminClient();
+
   try {
     await requireAdmin();
-    const adminClient = getAdminClient();
 
     const name = formData.get('name') as string;
     const contactEmail = formData.get('contactEmail') as string;
     const contactPhone = formData.get('contactPhone') as string;
     const address = formData.get('address') as string;
+    const password = formData.get('password') as string;
+
+    if (!name || name.trim() === '') {
+      return { error: 'Partner name is required' };
+    }
+
+    if (!contactEmail || contactEmail.trim() === '') {
+      return { error: 'Contact email is required to create a Partner login' };
+    }
+
+    if (!password || password.length < 6) {
+      return { error: 'Password of at least 6 characters is required' };
+    }
 
     if (contactPhone && !isValidPhone(contactPhone)) {
       return { error: 'Invalid contact phone number format' };
     }
 
-    if (!name || name.trim() === '') return { error: 'Partner name is required' };
+    // Step 1: Create Partner Organization
+    const { data: orgData, error: orgError } = await adminClient
+      .from('organizations')
+      .insert({
+        type: 'PARTNER',
+        name: name.trim(),
+        contact_email: contactEmail.trim(),
+        contact_phone: contactPhone ? contactPhone.trim() : null,
+        address: address ? address.trim() : null,
+        status: 'ACTIVE',
+        parent_org_id: null
+      })
+      .select('id')
+      .single();
 
-    const { error } = await adminClient.from('organizations').insert({
-      type: 'PARTNER',
-      name,
-      contact_email: contactEmail || null,
-      contact_phone: contactPhone || null,
-      address: address || null,
-      status: 'ACTIVE',
-      parent_org_id: null
+    if (orgError || !orgData) {
+      return { error: orgError?.message || 'Failed to create Partner organization' };
+    }
+
+    partnerOrgId = orgData.id;
+
+    // Step 2: Create Auth User
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+      email: contactEmail.trim(),
+      password: password,
+      email_confirm: true,
+      phone: contactPhone ? contactPhone.trim() : undefined,
     });
 
-    if (error) throw error;
-    
+    if (authError) {
+      // Rollback: Delete newly created organization
+      if (partnerOrgId) {
+        await adminClient.from('organizations').delete().eq('id', partnerOrgId);
+      }
+
+      const msg = authError.message.toLowerCase();
+      const code = (authError as any).code;
+
+      if (code === 'email_exists' || (msg.includes('email') && msg.includes('already registered'))) {
+        return { error: 'Email already registered' };
+      }
+      if (code === 'phone_exists' || (msg.includes('phone') && msg.includes('already registered'))) {
+        return { error: 'Phone number already registered to another user' };
+      }
+      return { error: authError.message || 'Failed to create Partner login' };
+    }
+
+    if (!authData.user) {
+      if (partnerOrgId) {
+        await adminClient.from('organizations').delete().eq('id', partnerOrgId);
+      }
+      return { error: 'Failed to create Partner login' };
+    }
+
+    authUserId = authData.user.id;
+
+    // Step 3: Create Profile
+    const { error: profileError } = await adminClient.from('profiles').insert({
+      id: authUserId,
+      role: 'PARTNER',
+      org_id: partnerOrgId,
+      name: name.trim(),
+      phone: contactPhone ? contactPhone.trim() : null,
+      address: address ? address.trim() : null,
+      status: 'ACTIVE'
+    });
+
+    if (profileError) {
+      // Rollback: Delete Auth user and Organization
+      if (authUserId) {
+        await adminClient.auth.admin.deleteUser(authUserId);
+      }
+      if (partnerOrgId) {
+        await adminClient.from('organizations').delete().eq('id', partnerOrgId);
+      }
+      return { error: profileError.message || 'Failed to create Partner profile' };
+    }
+
     revalidatePath('/admin/partners');
     return { success: true };
   } catch (err: any) {
+    if (authUserId) {
+      try { await adminClient.auth.admin.deleteUser(authUserId); } catch (_) {}
+    }
+    if (partnerOrgId) {
+      try { await adminClient.from('organizations').delete().eq('id', partnerOrgId); } catch (_) {}
+    }
     return { error: err.message || 'Failed to create Partner' };
   }
 }
