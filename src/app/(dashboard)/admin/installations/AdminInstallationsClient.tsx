@@ -1,5 +1,6 @@
 "use client";
 import { CopyTechnicianLink } from '@/components/installations/CopyTechnicianLink';
+import { ReviewDrawer } from '@/components/installations/ReviewDrawer';
 
 
 import React, { useState } from 'react';
@@ -34,6 +35,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
   const supabase = createClient();
   
   const [selectedInst, setSelectedInst] = useState<any | null>(null);
+  const [reviewInstId, setReviewInstId] = useState<string | null>(null);
   const [assigningPartnerInst, setAssigningPartnerInst] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
@@ -320,8 +322,28 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                         {inst.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-acs-primary hover:text-acs-primary/80">View Details</button>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
+                      {inst.status === 'UNDER_VERIFICATION' ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReviewInstId(inst.id);
+                          }}
+                          className="text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 font-bold px-2.5 py-1 rounded text-xs transition-colors"
+                        >
+                          Review Installation
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReviewInstId(inst.id);
+                          }}
+                          className="text-acs-primary hover:text-acs-primary/80 font-medium text-xs py-1"
+                        >
+                          Review Evidence
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -452,7 +474,19 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                     {/* Verification Actions */}
                     {selectedInst.status === 'UNDER_VERIFICATION' && (
                       <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                        <h3 className="font-bold text-yellow-800 mb-2">Verification Required</h3>
+                        <div className="flex justify-between items-center mb-2">
+                          <h3 className="font-bold text-yellow-800">Verification Required</h3>
+                          <button 
+                            onClick={() => {
+                              const id = selectedInst.id;
+                              setSelectedInst(null);
+                              setReviewInstId(id);
+                            }}
+                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded text-xs shadow transition-colors"
+                          >
+                            Open Full Review Drawer
+                          </button>
+                        </div>
                         <p className="text-sm text-yellow-700 mb-4">Please review the checklist and photos uploaded by the technician. If everything is correct, verify the installation.</p>
                         <div className="flex gap-4">
                           <button 
@@ -716,6 +750,15 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
           </div>
         )}
       </AnimatePresence>
+
+      <ReviewDrawer 
+        installationId={reviewInstId} 
+        onClose={() => setReviewInstId(null)}
+        onReviewComplete={() => {
+          setReviewInstId(null);
+          router.refresh();
+        }}
+      />
     </div>
   );
 }
