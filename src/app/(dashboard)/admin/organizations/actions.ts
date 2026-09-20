@@ -261,16 +261,43 @@ export async function createDealer(formData: FormData) {
       return { error: 'Invalid contact phone number format' };
     }
 
-    if (!name || name.trim() === '') return { error: 'Dealer name is required' };
-    if (!parentOrgId) return { error: 'Parent OEM is required' };
+    if (!parentOrgId || parentOrgId.trim() === '') return { error: 'Parent OEM is required' };
 
-    if (!contactEmail || contactEmail.trim() === '') {
-      return { error: 'Contact email is required to create a Dealership login' };
+    const trimmedParent = parentOrgId.trim();
+    const isParentUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedParent);
+    let resolvedOemId = trimmedParent;
+
+    if (!isParentUuid) {
+      const { data: oemMatches } = await adminClient
+        .from('organizations')
+        .select('id, name')
+        .eq('type', 'OEM')
+        .eq('status', 'ACTIVE')
+        .or(`display_id.eq.${trimmedParent},contact_email.ilike.${trimmedParent},name.ilike.${trimmedParent}`);
+
+      if (!oemMatches || oemMatches.length === 0) {
+        const { data: partialOems } = await adminClient
+          .from('organizations')
+          .select('id, name')
+          .eq('type', 'OEM')
+          .eq('status', 'ACTIVE')
+          .ilike('name', `%${trimmedParent}%`);
+
+        if (!partialOems || partialOems.length === 0) {
+          return { error: `No active OEM found matching "${trimmedParent}". Please check the OEM name or ID.` };
+        }
+        if (partialOems.length > 1) {
+          return { error: `Multiple OEMs match "${trimmedParent}". Please specify the exact OEM email or Display ID.` };
+        }
+        resolvedOemId = partialOems[0].id;
+      } else if (oemMatches.length > 1) {
+        return { error: `Multiple OEMs match "${trimmedParent}". Please specify the exact OEM email or Display ID.` };
+      } else {
+        resolvedOemId = oemMatches[0].id;
+      }
     }
 
-    if (!password || password.length < 6) {
-      return { error: 'Password of at least 6 characters is required' };
-    }
+    parentOrgId = resolvedOemId;
 
     // Verify parent OEM exists and is active
     const { data: oem } = await adminClient.from('organizations').select('type, status').eq('id', parentOrgId).single();

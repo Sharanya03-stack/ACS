@@ -27,7 +27,7 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
   const [rejectReason, setRejectReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [technicians, setTechnicians] = useState<any[]>([]);
+  const [techInput, setTechInput] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
 
   const supabase = createClient();
@@ -103,18 +103,6 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         if (profile) {
           setUserRole(profile.role);
-          
-          // If user is Admin or Partner, fetch available technicians for this partner
-          if ((profile.role === 'ACS_ADMIN' || profile.role === 'PARTNER') && instData.partner_id) {
-            const { data: techs } = await supabase
-              .from('profiles')
-              .select('id, name')
-              .eq('role', 'TECHNICIAN')
-              .eq('org_id', instData.partner_id)
-              .eq('status', 'ACTIVE');
-              
-            if (techs) setTechnicians(techs);
-          }
         }
       }
     }
@@ -181,12 +169,13 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
     }
   };
 
-  const handleAssignTechnician = async (techId: string) => {
-    if (!installationId || !techId) return;
+  const handleAssignTechnician = async (inputName: string) => {
+    if (!installationId || !inputName.trim()) return;
     setIsAssigning(true);
-    const res = await assignTechnician(installationId, techId);
+    const res = await assignTechnician(installationId, inputName.trim());
     if (res.success) {
       toast.success('Technician assigned successfully');
+      setTechInput('');
       loadDetails();
       onReviewComplete(); // Optional: trigger parent refresh
     } else {
@@ -288,23 +277,25 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
                     <p>Partner: {details.partner?.name || 'Unassigned'}</p>
                     <div className="mt-2">
                       <p className="text-gray-500 font-medium text-sm">Technician:</p>
-                      {(userRole === 'ACS_ADMIN' || userRole === 'PARTNER') && details.partner_id ? (
-                        <select
-                          value={details.technician_id || ""}
-                          onChange={(e) => handleAssignTechnician(e.target.value)}
-                          disabled={isAssigning || technicians.length === 0}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-acs-primary focus:border-acs-primary sm:text-sm rounded-md border"
-                        >
-                          <option value="" disabled>Unassigned ▼</option>
-                          {technicians.map(t => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <p>{details.technician?.name || 'Unassigned'}</p>
-                      )}
-                      {technicians.length === 0 && (userRole === 'ACS_ADMIN' || userRole === 'PARTNER') && details.partner_id && (
-                        <p className="text-xs text-red-500 mt-1">No active technicians found for this partner.</p>
+                      <p className="font-semibold text-gray-800">{details.technician?.name || 'Unassigned'}</p>
+                      {(userRole === 'ACS_ADMIN' || userRole === 'PARTNER') && (
+                        <div className="mt-2 flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Technician Name / Phone / ID"
+                            value={techInput}
+                            onChange={(e) => setTechInput(e.target.value)}
+                            disabled={isAssigning}
+                            className="flex-1 rounded-md border-gray-300 border px-3 py-1.5 text-sm"
+                          />
+                          <button
+                            onClick={() => handleAssignTechnician(techInput)}
+                            disabled={isAssigning || !techInput.trim()}
+                            className="bg-[#243B36] text-white text-xs font-semibold px-3 py-1.5 rounded hover:opacity-90 disabled:opacity-50"
+                          >
+                            {isAssigning ? 'Assigning...' : 'Assign'}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

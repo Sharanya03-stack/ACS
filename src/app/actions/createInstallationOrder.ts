@@ -49,7 +49,7 @@ export async function createInstallationOrder(formData: FormData) {
   const remarks = formData.get('remarks') as string || null;
   
   // Only some roles can directly assign partner/technician on creation
-  let partner_id = formData.get('partner_id') as string || null;
+  let partner_id = (formData.get('partner_id') || formData.get('partner_query')) as string || null;
   let technician_id = formData.get('technician_id') as string || null;
 
   const vehicle: any = Array.isArray(charger.vehicles) ? charger.vehicles[0] : charger.vehicles;
@@ -75,6 +75,47 @@ export async function createInstallationOrder(formData: FormData) {
   } else if (profile.role === 'DEALER') {
     partner_id = null; // Dealers don't assign partners, OEM/Admin does
     technician_id = null;
+  }
+
+  if (partner_id && partner_id.trim() !== '') {
+    const trimmed = partner_id.trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+    if (!isUuid) {
+      const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+      const adminClient = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      const { data: matches } = await adminClient
+        .from('organizations')
+        .select('id, name')
+        .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
+        .eq('status', 'ACTIVE')
+        .or(`display_id.eq.${trimmed},contact_email.ilike.${trimmed},name.ilike.${trimmed}`);
+
+      if (!matches || matches.length === 0) {
+        const { data: partialMatches } = await adminClient
+          .from('organizations')
+          .select('id, name')
+          .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
+          .eq('status', 'ACTIVE')
+          .ilike('name', `%${trimmed}%`);
+
+        if (!partialMatches || partialMatches.length === 0) {
+          return { success: false, error: `No active Installation Partner found matching "${trimmed}". Please check the partner name or ID.` };
+        }
+        if (partialMatches.length > 1) {
+          return { success: false, error: `Multiple partners match "${trimmed}". Please enter exact email or Display ID.` };
+        }
+        partner_id = partialMatches[0].id;
+      } else if (matches.length > 1) {
+        return { success: false, error: `Multiple partners match "${trimmed}". Please enter exact email or Display ID.` };
+      } else {
+        partner_id = matches[0].id;
+      }
+    }
+  } else {
+    partner_id = null;
   }
 
   if (partner_id && status === 'NEW') status = 'PARTNER_ASSIGNED';

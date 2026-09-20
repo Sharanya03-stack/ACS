@@ -183,69 +183,6 @@ export function InstallationFilters({
             </select>
           </div>
 
-          {showOem && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">OEM</label>
-              <select
-                value={oemId}
-                onChange={(e) => setOemId(e.target.value)}
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              >
-                <option value="">All OEMs</option>
-                {oems.map(oem => (
-                  <option key={oem.id} value={oem.id}>{oem.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {showDealer && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dealer</label>
-              <select
-                value={dealerId}
-                onChange={(e) => setDealerId(e.target.value)}
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              >
-                <option value="">All Dealers</option>
-                {dealers.map(dealer => (
-                  <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {showPartner && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Installation Partner</label>
-              <select
-                value={partnerId}
-                onChange={(e) => setPartnerId(e.target.value)}
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              >
-                <option value="">All Partners</option>
-                {partners.map(partner => (
-                  <option key={partner.id} value={partner.id}>{partner.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {showTechnician && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Technician</label>
-              <select
-                value={technicianId}
-                onChange={(e) => setTechnicianId(e.target.value)}
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              >
-                <option value="">All Technicians</option>
-                {technicians.map(tech => (
-                  <option key={tech.id} value={tech.id}>{tech.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
       )}
     </div>

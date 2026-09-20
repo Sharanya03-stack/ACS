@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { notifyPartnerAssigned } from '@/lib/email/notifications';
 import { notifyOrganization } from '@/lib/notifications';
 
-export async function assignPartnerAction(installationId: string, partnerId: string) {
+export async function assignPartnerAction(installationId: string, partnerInput: string) {
   const supabase = await createClient();
 
   // 1. Authenticate & Resolve Identity
@@ -25,7 +25,7 @@ export async function assignPartnerAction(installationId: string, partnerId: str
     return { success: false, error: 'Unauthorized: Only ACS Admin or OEM can assign partners' };
   }
 
-  // 2. Fetch current installation details to verify ownership and avoid duplicate emails
+  // 2. Fetch current installation details to verify ownership
   const { data: existing, error: fetchErr } = await supabase
     .from('installations')
     .select('id, partner_id, oem_id, status')
@@ -41,16 +41,71 @@ export async function assignPartnerAction(installationId: string, partnerId: str
     return { success: false, error: 'Unauthorized: Installation does not belong to your OEM organization' };
   }
 
-  // 3. Verify selected partner organization is actually an active Installation Partner
-  const { data: partnerOrg } = await supabase
-    .from('organizations')
-    .select('id, type, status')
-    .eq('id', partnerId)
-    .single();
-
-  if (!partnerOrg || (partnerOrg.type !== 'PARTNER' && partnerOrg.type !== 'INSTALLATION_PARTNER') || partnerOrg.status !== 'ACTIVE') {
-    return { success: false, error: 'Invalid or inactive Installation Partner selected' };
+  if (!partnerInput || partnerInput.trim() === '') {
+    return { success: false, error: 'Partner name, email, or Display ID is required.' };
   }
+
+  const trimmed = partnerInput.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  let targetPartner: any = null;
+
+  if (isUuid) {
+    const { data: p } = await adminClient
+      .from('organizations')
+      .select('id, type, status, name')
+      .eq('id', trimmed)
+      .maybeSingle();
+    if (p && (p.type === 'PARTNER' || p.type === 'INSTALLATION_PARTNER') && p.status === 'ACTIVE') {
+      targetPartner = p;
+    }
+  }
+
+  if (!targetPartner) {
+    // Search active partners by exact display_id, contact_email, or name
+    const { data: matches, error: matchErr } = await adminClient
+      .from('organizations')
+      .select('id, name, contact_email, display_id')
+      .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
+      .eq('status', 'ACTIVE')
+      .is('deleted_at', null)
+      .or(`display_id.eq.${trimmed},contact_email.ilike.${trimmed},name.ilike.${trimmed}`);
+
+    if (matchErr) {
+      console.error('Error resolving partner:', matchErr);
+      return { success: false, error: 'Database error resolving partner.' };
+    }
+
+    if (!matches || matches.length === 0) {
+      // Partial name fallback
+      const { data: partialMatches } = await adminClient
+        .from('organizations')
+        .select('id, name, contact_email, display_id')
+        .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
+        .eq('status', 'ACTIVE')
+        .is('deleted_at', null)
+        .ilike('name', `%${trimmed}%`);
+
+      if (!partialMatches || partialMatches.length === 0) {
+        return { success: false, error: `No active Installation Partner found matching "${trimmed}". Please check the exact partner name, email, or Display ID.` };
+      }
+      if (partialMatches.length > 1) {
+        return { success: false, error: `Multiple partners match "${trimmed}". Please enter the exact email address or Display ID.` };
+      }
+      targetPartner = partialMatches[0];
+    } else if (matches.length > 1) {
+      return { success: false, error: `Multiple partners match "${trimmed}". Please enter the exact email address or Display ID.` };
+    } else {
+      targetPartner = matches[0];
+    }
+  }
+
+  const partnerId = targetPartner.id;
 
   if (existing.partner_id === partnerId) {
     return { success: true, message: 'Partner already assigned' };
@@ -87,47 +142,12 @@ export async function assignPartnerAction(installationId: string, partnerId: str
   ).catch(console.error);
 
   revalidatePath('/', 'layout');
-  return { success: true };
+  return { success: true, partnerName: targetPartner.name };
 }
 
 export async function getActivePartnersAction() {
-  const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: 'Unauthorized', data: [] };
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile || (profile.role !== 'ACS_ADMIN' && profile.role !== 'OEM')) {
-    return { success: false, error: 'Unauthorized', data: [] };
-  }
-
-  // Use service role admin client ONLY after user identity and role authorization succeed
-  const adminClient = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  const { data, error } = await adminClient
-    .from('organizations')
-    .select('id, display_id, name, type, status')
-    .eq('type', 'PARTNER')
-    .eq('status', 'ACTIVE')
-    .is('deleted_at', null)
-    .order('name');
-
-  if (error) {
-    console.error('Error fetching active partners:', error);
-    return { success: false, error: error.message, data: [] };
-  }
-
-  return { success: true, data: data || [] };
+  // Security/Privacy: Do not return lists of partners to the client
+  return { success: true, data: [] };
 }
 
 

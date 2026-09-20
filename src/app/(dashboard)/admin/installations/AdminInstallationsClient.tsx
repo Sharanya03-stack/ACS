@@ -543,96 +543,70 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                         <h3 className="text-sm font-medium text-gray-500">Partner Organization</h3>
                         {selectedInst.partner_id ? (
                           <>
-                            <p className="mt-1 text-sm text-gray-900 font-semibold">{selectedInst.partners?.name}</p>
-                            {selectedInst.partners?.display_id && (
-                              <p className="text-xs text-gray-500 font-mono">Partner ID: {selectedInst.partners.display_id}</p>
-                            )}
+                            <p className="text-sm text-gray-900 mt-1 font-medium">{selectedInst.partners?.name || 'Assigned'}</p>
                             {selectedInst.partners?.address && (
                               <p className="text-sm text-gray-500">{selectedInst.partners.address}</p>
                             )}
                           </>
                         ) : (
-                          <div className="mt-1 relative">
-                            <p className="text-sm text-gray-900 font-semibold mb-1">Unassigned</p>
-                            <div className="relative flex items-center">
-                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                              <input
-                                type="text"
-                                placeholder="Search installation partner..."
-                                value={partnerSearchQuery}
-                                onChange={(e) => {
-                                  setPartnerSearchQuery(e.target.value);
-                                  setIsPartnerDropdownOpen(true);
-                                }}
-                                onFocus={() => setIsPartnerDropdownOpen(true)}
-                                disabled={isSubmitting}
-                                className="mt-1 block w-full pl-8 pr-8 py-1.5 text-xs rounded-md border-gray-300 shadow-sm border focus:border-[#243B36] focus:ring-[#243B36] bg-white text-gray-900 font-medium"
-                              />
-                              {partnerSearchQuery && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPartnerSearchQuery('');
-                                    setIsPartnerDropdownOpen(false);
-                                  }}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-                                  title="Clear search"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            </div>
-
-                            {isPartnerDropdownOpen && (
-                              <>
-                                <div className="fixed inset-0 z-10" onClick={() => setIsPartnerDropdownOpen(false)} />
-                                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-20">
-                                  {filteredPartnersList.length === 0 ? (
-                                    <div className="p-3 text-xs text-gray-500 text-center">No matching active partners found</div>
-                                  ) : (
-                                    filteredPartnersList.map(p => (
-                                      <button
-                                        key={p.id}
-                                        type="button"
-                                        onClick={() => {
-                                          const label = `${p.name}${p.display_id ? ` — ${p.display_id}` : ''}`;
-                                          setPartnerSearchQuery(label);
-                                          setIsPartnerDropdownOpen(false);
-                                          handleAssignPartnerFromDrawer(selectedInst.id, p.id);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex justify-between items-center border-b last:border-b-0 border-gray-50"
-                                      >
-                                        <span className="font-medium text-gray-900">{p.name}</span>
-                                        {p.display_id && <span className="text-gray-500 font-mono ml-2">{p.display_id}</span>}
-                                      </button>
-                                    ))
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
+                          <form 
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              if (partnerSearchQuery.trim()) {
+                                handleAssignPartnerFromDrawer(selectedInst.id, partnerSearchQuery.trim());
+                              }
+                            }} 
+                            className="mt-2 flex gap-2"
+                          >
+                            <input
+                              type="text"
+                              placeholder="Partner Name / Email / ID..."
+                              value={partnerSearchQuery}
+                              onChange={(e) => setPartnerSearchQuery(e.target.value)}
+                              disabled={isSubmitting}
+                              className="w-full px-3 py-1.5 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-[#243B36] focus:border-[#243B36]"
+                            />
+                            <button
+                              type="submit"
+                              disabled={isSubmitting || !partnerSearchQuery.trim()}
+                              className="px-3 py-1.5 bg-[#243B36] text-white text-xs font-semibold rounded hover:bg-[#1b2d29] disabled:opacity-50"
+                            >
+                              Assign
+                            </button>
+                          </form>
                         )}
                         <div className="mt-4">
                           <p className="text-sm font-medium text-gray-500">Assigned Technician:</p>
-                          {selectedInst.partner_id ? (
-                            <select
-                              value={selectedInst.technician_id || ""}
-                              onChange={(e) => handleAssignTechnician(selectedInst.id, e.target.value)}
-                              disabled={isAssigningTech || technicians.filter(t => t.org_id === selectedInst.partner_id && t.status === 'ACTIVE').length === 0}
-                              className="mt-1 block w-full pl-3 pr-10 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-acs-primary focus:border-acs-primary rounded-md border"
+                          {selectedInst.technicians?.name ? (
+                            <p className="text-sm text-gray-900 mt-1 font-medium">{selectedInst.technicians.name}</p>
+                          ) : selectedInst.partner_id ? (
+                            <form 
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                const input = (e.currentTarget.elements.namedItem('techInput') as HTMLInputElement)?.value;
+                                if (input && input.trim()) {
+                                  handleAssignTechnician(selectedInst.id, input.trim());
+                                }
+                              }} 
+                              className="mt-2 flex gap-2"
                             >
-                              <option value="" disabled>Unassigned ▼</option>
-                              {technicians
-                                .filter(t => t.org_id === selectedInst.partner_id && t.status === 'ACTIVE')
-                                .map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
-                              ))}
-                            </select>
+                              <input
+                                type="text"
+                                name="techInput"
+                                placeholder="Technician Name / Phone / ID..."
+                                disabled={isAssigningTech}
+                                className="w-full px-3 py-1.5 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-[#243B36] focus:border-[#243B36]"
+                              />
+                              <button
+                                type="submit"
+                                disabled={isAssigningTech}
+                                className="px-3 py-1.5 bg-[#243B36] text-white text-xs font-semibold rounded hover:bg-[#1b2d29] disabled:opacity-50"
+                              >
+                                Assign
+                              </button>
+                            </form>
                           ) : (
-                            <p className="text-sm text-gray-900 mt-1">{selectedInst.technicians?.name || 'Unassigned'}</p>
-                          )}
-                          {selectedInst.partner_id && technicians.filter(t => t.org_id === selectedInst.partner_id && t.status === 'ACTIVE').length === 0 && (
-                            <p className="text-xs text-red-500 mt-1">No active technicians found for this partner.</p>
+                            <p className="text-sm text-gray-400 italic mt-1">Assign Partner first</p>
                           )}
                         </div>
                         {selectedInst.technicians?.address && (
