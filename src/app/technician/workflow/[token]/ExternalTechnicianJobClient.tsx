@@ -179,14 +179,91 @@ export default function ExternalTechnicianJobClient({
     setSavingChecklist(false);
   };
 
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        try {
+          const MAX_WIDTH = 1920;
+          const MAX_HEIGHT = 1920;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+            if (width > height) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            } else {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to process image canvas context'));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to compress image'));
+                return;
+              }
+              const cleanName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
+              const compressedFile = new File([blob], cleanName, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            },
+            'image/jpeg',
+            0.80
+          );
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load image file. Please try another image.'));
+      };
+
+      img.src = objectUrl;
+    });
+  };
+
   const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!activePhotoSection || !e.target.files || e.target.files.length === 0) return;
-    
+    const rawFile = e.target.files[0];
+    const targetInput = e.target;
+
     setUploadingState(prev => ({ ...prev, [activePhotoSection]: true }));
     
     try {
+      let fileToUpload: File;
+      try {
+        fileToUpload = await compressImage(rawFile);
+      } catch (compressErr: any) {
+        toast.error(compressErr?.message || 'Failed to process image before upload.');
+        setUploadingState(prev => ({ ...prev, [activePhotoSection]: false }));
+        setActivePhotoSection(null);
+        if (targetInput) targetInput.value = '';
+        return;
+      }
+
       const formData = new FormData();
-      formData.append('file', e.target.files[0]);
+      formData.append('file', fileToUpload);
       formData.append('trackingToken', token);
       formData.append('category', activePhotoSection);
 
@@ -194,14 +271,16 @@ export default function ExternalTechnicianJobClient({
       if (res.success) {
         toast.success('Photo uploaded');
       } else {
-        toast.error(res.error || 'Upload failed');
+        toast.error(res.error || 'Photo upload failed');
       }
-    } catch (err) {
-      toast.error('Upload failed');
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast.error('Photo upload failed. Please try again.');
     }
     
     setUploadingState(prev => ({ ...prev, [activePhotoSection]: false }));
     setActivePhotoSection(null);
+    if (targetInput) targetInput.value = '';
     router.refresh();
   };
 
