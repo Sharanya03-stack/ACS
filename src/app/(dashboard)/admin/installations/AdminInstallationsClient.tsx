@@ -644,7 +644,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                         <p className="mt-1 text-xs text-gray-500">Tracking Token:</p>
                         <div className="flex items-center gap-2 mt-1">
                           <p className="text-sm text-gray-900 font-mono break-all">{selectedInst.tracking_token || 'N/A'}</p>
-                          {selectedInst.tracking_token && <CopyTechnicianLink token={selectedInst.tracking_token} />}
+                          {selectedInst.tracking_token && <CopyTechnicianLink token={selectedInst.tracking_token} technicianId={selectedInst.technician_id} />}
                         </div>
                         <p className="mt-2 text-xs text-gray-500">Remarks:</p>
                         <p className="text-sm text-gray-900">{selectedInst.remarks || 'None'}</p>

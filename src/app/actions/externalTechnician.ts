@@ -147,6 +147,10 @@ export async function externalUploadPhoto(formData: FormData) {
   const inst = await getInstallationByToken(token);
   if (!inst) return { error: 'Invalid token' };
 
+  if (!inst.technician_id) {
+    return { error: 'A technician must be assigned before photos can be uploaded.' };
+  }
+
   if (!ALLOWED_MIME_TYPES.includes(file.type)) return { error: 'Unsupported file type' };
   if (file.size > MAX_FILE_SIZE) return { error: 'File exceeds 5MB' };
 
@@ -182,6 +186,10 @@ export async function externalUploadDocument(formData: FormData) {
   const supabase = getAdminClient();
   const inst = await getInstallationByToken(token);
   if (!inst) return { error: 'Invalid token' };
+
+  if (!inst.technician_id) {
+    return { error: 'A technician must be assigned before documents can be uploaded.' };
+  }
 
   if (file.type !== 'application/pdf') return { error: 'Unsupported file type, must be PDF' };
   if (file.size > MAX_FILE_SIZE) return { error: 'File exceeds 5MB' };
