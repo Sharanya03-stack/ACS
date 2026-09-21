@@ -28,7 +28,7 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
   // 2. Fetch current installation details to verify ownership
   const { data: existing, error: fetchErr } = await supabase
     .from('installations')
-    .select('id, partner_id, oem_id, status')
+    .select('id, partner_id, technician_id, oem_id, status')
     .eq('id', installationId)
     .single();
 
@@ -111,17 +111,23 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
     return { success: true, message: 'Partner already assigned' };
   }
 
-  // Preserve state machine: transition NEW to PARTNER_ASSIGNED, or preserve current state if already advanced
-  const newStatus = (!existing.status || existing.status === 'NEW') ? 'PARTNER_ASSIGNED' : existing.status;
+  const isPartnerChanging = existing.partner_id !== partnerId;
+  const newStatus = (!existing.status || existing.status === 'NEW' || (isPartnerChanging && existing.status === 'TECHNICIAN_ASSIGNED')) ? 'PARTNER_ASSIGNED' : existing.status;
+
+  const updatePayload: any = {
+    status: newStatus,
+    partner_id: partnerId,
+    updated_at: new Date().toISOString()
+  };
+
+  if (isPartnerChanging) {
+    updatePayload.technician_id = null;
+  }
 
   // 4. Assign the partner
   const { data: updatedData, error: updateError } = await adminClient
     .from('installations')
-    .update({ 
-      status: newStatus, 
-      partner_id: partnerId,
-      updated_at: new Date().toISOString()
-    })
+    .update(updatePayload)
     .eq('id', installationId)
     .select('id');
 

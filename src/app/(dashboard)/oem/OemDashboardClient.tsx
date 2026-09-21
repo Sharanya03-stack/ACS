@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, BatteryCharging, X } from 'lucide-react';
 import { EvidenceManager } from '@/components/installations/EvidenceManager';
 import { assignPartnerAction } from '@/app/actions/assignPartner';
+import { assignTechnician } from '@/app/actions/assignTechnician';
 
 interface Props {
   installations: any[];
@@ -41,12 +42,19 @@ export default function OemDashboardClient({
   // Partner assignment state
   const [isAssigningPartner, setIsAssigningPartner] = useState(false);
   const [partnerSearchQuery, setPartnerSearchQuery] = useState("");
+  const [isEditingPartner, setIsEditingPartner] = useState(false);
+
+  // Technician assignment state
+  const [isAssigningTech, setIsAssigningTech] = useState(false);
+  const [techSearchQuery, setTechSearchQuery] = useState("");
+  const [isEditingTech, setIsEditingTech] = useState(false);
 
   const handleAssignPartner = async (id: string, partnerInput: string) => {
     setIsAssigningPartner(true);
     const res = await assignPartnerAction(id, partnerInput);
     if (res.success) {
       setPartnerSearchQuery('');
+      setIsEditingPartner(false);
       const { data: updatedInst } = await supabase
         .from('installations')
         .select(`
@@ -70,6 +78,35 @@ export default function OemDashboardClient({
     setIsAssigningPartner(false);
   };
 
+  const handleAssignTechnician = async (id: string, techInput: string) => {
+    setIsAssigningTech(true);
+    const res = await assignTechnician(id, techInput);
+    if (res.success) {
+      setTechSearchQuery('');
+      setIsEditingTech(false);
+      const { data: updatedInst } = await supabase
+        .from('installations')
+        .select(`
+          *,
+          customers:customer_id (id, display_id, name, phone, address, city),
+          dealers:dealer_id (id, display_id, name),
+          partners:partner_id (id, display_id, name, type, address),
+          technicians:technician_id (id, display_id, name, phone),
+          chargers:charger_id (id, display_id, serial_number, model)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (updatedInst) {
+        setSelectedInst(updatedInst);
+      }
+      router.refresh();
+    } else {
+      alert("Failed to assign technician: " + res.error);
+    }
+    setIsAssigningTech(false);
+  };
+
   // Detail Modal state
   const [checklists, setChecklists] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
@@ -77,6 +114,10 @@ export default function OemDashboardClient({
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   useEffect(() => {
+    setIsEditingPartner(false);
+    setPartnerSearchQuery('');
+    setIsEditingTech(false);
+    setTechSearchQuery('');
     if (selectedInst) {
       loadDetails(selectedInst.id);
       document.body.style.overflow = 'hidden';
@@ -488,10 +529,24 @@ export default function OemDashboardClient({
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Assignment Details</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-xs text-gray-500">Partner Organization</p>
-                        {selectedInst.partner_id ? (
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500">Partner Organization</p>
+                          {selectedInst.partner_id && !isEditingPartner && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditingPartner(true);
+                                setPartnerSearchQuery(selectedInst.partners?.name || '');
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                            >
+                              Reassign
+                            </button>
+                          )}
+                        </div>
+                        {selectedInst.partner_id && !isEditingPartner ? (
                           <>
-                            <p className="text-sm font-semibold text-gray-900">{selectedInst.partners?.name || 'Assigned'}</p>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">{selectedInst.partners?.name || 'Assigned'}</p>
                             {selectedInst.partners?.display_id && (
                               <p className="text-xs text-gray-500 font-mono">Partner ID: {selectedInst.partners.display_id}</p>
                             )}
@@ -517,16 +572,92 @@ export default function OemDashboardClient({
                             <button
                               type="submit"
                               disabled={isAssigningPartner || !partnerSearchQuery.trim()}
-                              className="px-3 py-1.5 bg-[#243B36] text-white text-xs font-semibold rounded hover:bg-[#1b2d29] disabled:opacity-50"
+                              className="px-3 py-1.5 bg-[#243B36] text-white text-xs font-semibold rounded hover:bg-[#1b2d29] disabled:opacity-50 whitespace-nowrap"
                             >
-                              {isAssigningPartner ? 'Assigning...' : 'Assign'}
+                              {isAssigningPartner ? 'Assigning...' : selectedInst.partner_id ? 'Save' : 'Assign'}
                             </button>
+                            {selectedInst.partner_id && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsEditingPartner(false);
+                                  setPartnerSearchQuery('');
+                                }}
+                                disabled={isAssigningPartner}
+                                className="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-semibold rounded hover:bg-gray-300 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            )}
                           </form>
                         )}
                       </div>
+
                       <div>
-                        <p className="text-xs text-gray-500">Assigned Technician</p>
-                        <p className="text-sm font-semibold text-gray-900">{selectedInst.technicians?.name || 'Unassigned'}</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500">Assigned Technician</p>
+                          {selectedInst.technician_id && !isEditingTech && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditingTech(true);
+                                setTechSearchQuery(selectedInst.technicians?.name || '');
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                            >
+                              Reassign
+                            </button>
+                          )}
+                        </div>
+                        {!selectedInst.partner_id ? (
+                          <p className="text-xs text-gray-400 italic mt-1">Assign Partner first</p>
+                        ) : selectedInst.technician_id && !isEditingTech ? (
+                          <>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">{selectedInst.technicians?.name || 'Assigned'}</p>
+                            {selectedInst.technicians?.phone && (
+                              <p className="text-xs text-gray-500">{selectedInst.technicians.phone}</p>
+                            )}
+                          </>
+                        ) : (
+                          <form 
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              if (techSearchQuery.trim()) {
+                                handleAssignTechnician(selectedInst.id, techSearchQuery.trim());
+                              }
+                            }}
+                            className="mt-2 flex gap-2"
+                          >
+                            <input
+                              type="text"
+                              placeholder="Technician Name / Phone / ID..."
+                              value={techSearchQuery}
+                              onChange={(e) => setTechSearchQuery(e.target.value)}
+                              disabled={isAssigningTech}
+                              className="w-full px-3 py-1.5 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-[#243B36] focus:border-[#243B36]"
+                            />
+                            <button
+                              type="submit"
+                              disabled={isAssigningTech || !techSearchQuery.trim()}
+                              className="px-3 py-1.5 bg-[#243B36] text-white text-xs font-semibold rounded hover:bg-[#1b2d29] disabled:opacity-50 whitespace-nowrap"
+                            >
+                              {isAssigningTech ? 'Assigning...' : selectedInst.technician_id ? 'Save' : 'Assign'}
+                            </button>
+                            {selectedInst.technician_id && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsEditingTech(false);
+                                  setTechSearchQuery('');
+                                }}
+                                disabled={isAssigningTech}
+                                className="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-semibold rounded hover:bg-gray-300 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </form>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -21,14 +21,14 @@ export async function assignTechnician(installationId: string, technicianInput: 
     .eq('id', user.id)
     .single();
 
-  if (!profile || (profile.role !== 'ACS_ADMIN' && profile.role !== 'PARTNER')) {
-    return { error: 'Forbidden: Only ACS Admin or Installation Partner can assign technicians.' };
+  if (!profile || (profile.role !== 'ACS_ADMIN' && profile.role !== 'PARTNER' && profile.role !== 'OEM')) {
+    return { error: 'Forbidden: Only ACS Admin, Installation Partner, or OEM can assign technicians.' };
   }
 
-  // 3. Get installation details (to verify partner ownership)
+  // 3. Get installation details (to verify partner/oem ownership)
   const { data: installation } = await supabase
     .from('installations')
-    .select('partner_id, status')
+    .select('partner_id, oem_id, status')
     .eq('id', installationId)
     .single();
 
@@ -36,10 +36,16 @@ export async function assignTechnician(installationId: string, technicianInput: 
     return { error: 'Installation not found' };
   }
 
-  // 4. Verify Partner authorization
+  // 4. Verify Partner/OEM authorization
   if (profile.role === 'PARTNER') {
     if (installation.partner_id !== profile.org_id) {
       return { error: 'Forbidden: You can only assign technicians to your own installations.' };
+    }
+  }
+
+  if (profile.role === 'OEM') {
+    if (installation.oem_id !== profile.org_id) {
+      return { error: 'Forbidden: Installation does not belong to your OEM organization.' };
     }
   }
 
@@ -116,12 +122,13 @@ export async function assignTechnician(installationId: string, technicianInput: 
   const resolvedTechnicianId = targetTech.id;
 
   // 6. Update installation with new technician_id
-  const { error: updateError } = await supabase
+  const { data: updatedData, error: updateError } = await adminClient
     .from('installations')
     .update({ technician_id: resolvedTechnicianId })
-    .eq('id', installationId);
+    .eq('id', installationId)
+    .select('id');
 
-  if (updateError) {
+  if (updateError || !updatedData || updatedData.length === 0) {
     console.error("Error updating technician:", updateError);
     return { error: 'Failed to assign technician' };
   }
@@ -147,7 +154,7 @@ export async function assignTechnician(installationId: string, technicianInput: 
 
   // 8. Update installation status if it was just PARTNER_ASSIGNED or NEW
   if (installation.status === 'NEW' || installation.status === 'PARTNER_ASSIGNED') {
-    await supabase
+    await adminClient
       .from('installations')
       .update({ status: 'TECHNICIAN_ASSIGNED' })
       .eq('id', installationId);
