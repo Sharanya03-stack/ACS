@@ -9,9 +9,9 @@ import { InstallationFilters } from '@/components/ui/InstallationFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import { createClient } from '@/utils/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, BatteryCharging, X, Search } from 'lucide-react';
+import { RefreshCw, BatteryCharging, X } from 'lucide-react';
 import { EvidenceManager } from '@/components/installations/EvidenceManager';
-import { assignPartnerAction, getActivePartnersAction } from '@/app/actions/assignPartner';
+import { assignPartnerAction } from '@/app/actions/assignPartner';
 
 interface Props {
   installations: any[];
@@ -38,43 +38,15 @@ export default function OemDashboardClient({
   const [selectedInst, setSelectedInst] = useState<any | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Active Partners for assignment
-  const [activePartners, setActivePartners] = useState<any[]>([]);
+  // Partner assignment state
   const [isAssigningPartner, setIsAssigningPartner] = useState(false);
   const [partnerSearchQuery, setPartnerSearchQuery] = useState("");
-  const [isPartnerDropdownOpen, setIsPartnerDropdownOpen] = useState(false);
 
-  const filteredPartnersList = React.useMemo(() => {
-    if (!partnerSearchQuery.trim()) return activePartners;
-    const q = partnerSearchQuery.toLowerCase();
-    return activePartners.filter(p =>
-      p.name?.toLowerCase().includes(q) ||
-      p.display_id?.toLowerCase().includes(q)
-    );
-  }, [activePartners, partnerSearchQuery]);
-
-  useEffect(() => {
-    const fetchPartners = async () => {
-      const res = await getActivePartnersAction();
-      if (res.success && res.data) {
-        setActivePartners(res.data);
-      } else {
-        const { data } = await supabase
-          .from('organizations')
-          .select('id, display_id, name, type, status')
-          .eq('type', 'PARTNER')
-          .eq('status', 'ACTIVE')
-          .order('name');
-        if (data) setActivePartners(data);
-      }
-    };
-    fetchPartners();
-  }, []);
-
-  const handleAssignPartner = async (id: string, partnerId: string) => {
+  const handleAssignPartner = async (id: string, partnerInput: string) => {
     setIsAssigningPartner(true);
-    const res = await assignPartnerAction(id, partnerId);
+    const res = await assignPartnerAction(id, partnerInput);
     if (res.success) {
+      setPartnerSearchQuery('');
       const { data: updatedInst } = await supabase
         .from('installations')
         .select(`
@@ -525,65 +497,31 @@ export default function OemDashboardClient({
                             )}
                           </>
                         ) : (
-                          <div className="mt-1 relative">
-                            <p className="text-sm font-semibold text-gray-900 mb-1">Unassigned</p>
-                            <div className="relative flex items-center">
-                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                              <input
-                                type="text"
-                                placeholder="Search installation partner..."
-                                value={partnerSearchQuery}
-                                onChange={(e) => {
-                                  setPartnerSearchQuery(e.target.value);
-                                  setIsPartnerDropdownOpen(true);
-                                }}
-                                onFocus={() => setIsPartnerDropdownOpen(true)}
-                                disabled={isAssigningPartner}
-                                className="block w-full pl-8 pr-8 py-1.5 text-xs rounded border-gray-300 shadow-sm border focus:border-[#243B36] focus:ring-[#243B36] bg-white text-gray-900 font-medium"
-                              />
-                              {partnerSearchQuery && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPartnerSearchQuery('');
-                                    setIsPartnerDropdownOpen(false);
-                                  }}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-                                  title="Clear search"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            </div>
-
-                            {isPartnerDropdownOpen && (
-                              <>
-                                <div className="fixed inset-0 z-10" onClick={() => setIsPartnerDropdownOpen(false)} />
-                                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-20">
-                                  {filteredPartnersList.length === 0 ? (
-                                    <div className="p-3 text-xs text-gray-500 text-center">No matching active partners found</div>
-                                  ) : (
-                                    filteredPartnersList.map(p => (
-                                      <button
-                                        key={p.id}
-                                        type="button"
-                                        onClick={() => {
-                                          const label = `${p.name}${p.display_id ? ` — ${p.display_id}` : ''}`;
-                                          setPartnerSearchQuery(label);
-                                          setIsPartnerDropdownOpen(false);
-                                          handleAssignPartner(selectedInst.id, p.id);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex justify-between items-center border-b last:border-b-0 border-gray-50"
-                                      >
-                                        <span className="font-medium text-gray-900">{p.name}</span>
-                                        {p.display_id && <span className="text-gray-500 font-mono ml-2">{p.display_id}</span>}
-                                      </button>
-                                    ))
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
+                          <form 
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              if (partnerSearchQuery.trim()) {
+                                handleAssignPartner(selectedInst.id, partnerSearchQuery.trim());
+                              }
+                            }}
+                            className="mt-2 flex gap-2"
+                          >
+                            <input
+                              type="text"
+                              placeholder="Partner Name / Email / ID..."
+                              value={partnerSearchQuery}
+                              onChange={(e) => setPartnerSearchQuery(e.target.value)}
+                              disabled={isAssigningPartner}
+                              className="w-full px-3 py-1.5 text-xs rounded-md border border-gray-300 focus:outline-none focus:ring-[#243B36] focus:border-[#243B36]"
+                            />
+                            <button
+                              type="submit"
+                              disabled={isAssigningPartner || !partnerSearchQuery.trim()}
+                              className="px-3 py-1.5 bg-[#243B36] text-white text-xs font-semibold rounded hover:bg-[#1b2d29] disabled:opacity-50"
+                            >
+                              {isAssigningPartner ? 'Assigning...' : 'Assign'}
+                            </button>
+                          </form>
                         )}
                       </div>
                       <div>

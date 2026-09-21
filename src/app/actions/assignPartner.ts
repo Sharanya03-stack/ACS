@@ -61,7 +61,7 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
       .select('id, type, status, name')
       .eq('id', trimmed)
       .maybeSingle();
-    if (p && (p.type === 'PARTNER' || p.type === 'INSTALLATION_PARTNER') && p.status === 'ACTIVE') {
+    if (p && p.type === 'PARTNER' && p.status === 'ACTIVE') {
       targetPartner = p;
     }
   }
@@ -71,7 +71,7 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
     const { data: matches, error: matchErr } = await adminClient
       .from('organizations')
       .select('id, name, contact_email, display_id')
-      .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
+      .eq('type', 'PARTNER')
       .eq('status', 'ACTIVE')
       .is('deleted_at', null)
       .or(`display_id.eq.${trimmed},contact_email.ilike.${trimmed},name.ilike.${trimmed}`);
@@ -86,7 +86,7 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
       const { data: partialMatches } = await adminClient
         .from('organizations')
         .select('id, name, contact_email, display_id')
-        .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
+        .eq('type', 'PARTNER')
         .eq('status', 'ACTIVE')
         .is('deleted_at', null)
         .ilike('name', `%${trimmed}%`);

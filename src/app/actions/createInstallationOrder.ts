@@ -89,7 +89,7 @@ export async function createInstallationOrder(formData: FormData) {
       const { data: matches } = await adminClient
         .from('organizations')
         .select('id, name')
-        .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
+        .eq('type', 'PARTNER')
         .eq('status', 'ACTIVE')
         .or(`display_id.eq.${trimmed},contact_email.ilike.${trimmed},name.ilike.${trimmed}`);
 
@@ -97,7 +97,7 @@ export async function createInstallationOrder(formData: FormData) {
         const { data: partialMatches } = await adminClient
           .from('organizations')
           .select('id, name')
-          .in('type', ['PARTNER', 'INSTALLATION_PARTNER'])
+          .eq('type', 'PARTNER')
           .eq('status', 'ACTIVE')
           .ilike('name', `%${trimmed}%`);
 
