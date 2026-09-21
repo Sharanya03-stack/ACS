@@ -11,9 +11,10 @@ interface EvidenceManagerProps {
   category: string;
   existingPhotos: any[];
   onUploadSuccess: () => void;
+  readOnly?: boolean;
 }
 
-export function EvidenceManager({ installationId, category, existingPhotos, onUploadSuccess }: EvidenceManagerProps) {
+export function EvidenceManager({ installationId, category, existingPhotos, onUploadSuccess, readOnly = false }: EvidenceManagerProps) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [showUploadMenu, setShowUploadMenu] = useState<string | null>(null);
@@ -77,41 +78,45 @@ export function EvidenceManager({ installationId, category, existingPhotos, onUp
       <h3 className="text-lg font-medium text-gray-900 mb-4">Evidence Photos</h3>
       
       {/* Hidden File Inputs for Photo Upload */}
-      <input 
-        type="file" 
-        accept="image/jpeg,image/png,image/webp"
-        capture="environment"
-        className="hidden" 
-        ref={cameraInputRef}
-        onChange={handleFileChange}
-      />
-      <input 
-        type="file" 
-        multiple
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden" 
-        ref={galleryInputRef}
-        onChange={handleFileChange}
-      />
+      {!readOnly && (
+        <>
+          <input 
+            type="file" 
+            accept="image/jpeg,image/png,image/webp"
+            capture="environment"
+            className="hidden" 
+            ref={cameraInputRef}
+            onChange={handleFileChange}
+          />
+          <input 
+            type="file" 
+            multiple
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden" 
+            ref={galleryInputRef}
+            onChange={handleFileChange}
+          />
 
-      <div className="flex gap-4 mb-6">
-        <button
-          onClick={() => handlePhotoClick('Extra_Installation_Photo')}
-          disabled={uploadingState['Extra_Installation_Photo']}
-          className="flex-1 bg-white border border-gray-300 rounded-md py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center disabled:opacity-50"
-        >
-          {uploadingState['Extra_Installation_Photo'] ? 'Uploading...' : 'Upload Installation Photo'}
-        </button>
-        {isEarthingRequired && (
-          <button
-            onClick={() => handlePhotoClick('Extra_Earthing_Photo')}
-            disabled={uploadingState['Extra_Earthing_Photo']}
-            className="flex-1 bg-white border border-gray-300 rounded-md py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center disabled:opacity-50"
-          >
-            {uploadingState['Extra_Earthing_Photo'] ? 'Uploading...' : 'Upload Earthing Photo'}
-          </button>
-        )}
-      </div>
+          <div className="flex gap-4 mb-6">
+            <button
+              onClick={() => handlePhotoClick('Extra_Installation_Photo')}
+              disabled={uploadingState['Extra_Installation_Photo']}
+              className="flex-1 bg-white border border-gray-300 rounded-md py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center disabled:opacity-50"
+            >
+              {uploadingState['Extra_Installation_Photo'] ? 'Uploading...' : 'Upload Installation Photo'}
+            </button>
+            {isEarthingRequired && (
+              <button
+                onClick={() => handlePhotoClick('Extra_Earthing_Photo')}
+                disabled={uploadingState['Extra_Earthing_Photo']}
+                className="flex-1 bg-white border border-gray-300 rounded-md py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center disabled:opacity-50"
+              >
+                {uploadingState['Extra_Earthing_Photo'] ? 'Uploading...' : 'Upload Earthing Photo'}
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {existingPhotos.length > 0 ? (
         <div className="grid grid-cols-2 gap-4">

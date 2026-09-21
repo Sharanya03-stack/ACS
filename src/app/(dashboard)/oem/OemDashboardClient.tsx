@@ -603,6 +603,7 @@ export default function OemDashboardClient({
                     category={selectedInst.category}
                     existingPhotos={photos}
                     onUploadSuccess={() => loadDetails(selectedInst.id)}
+                    readOnly={true}
                   />
                 )}
               </div>
