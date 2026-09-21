@@ -11,56 +11,54 @@ export async function createCustomer(formData: FormData) {
   const { data: profile } = await supabase.from('profiles').select('role, org_id').eq('id', user.id).single();
   if (!profile || (profile.role !== 'ACS_ADMIN' && !profile.org_id)) return { error: 'No org' };
   
-  let dealer_id = profile.org_id;
+  let dealer_id: string | null = profile.role === 'DEALER' ? profile.org_id : null;
+  let custom_dealer_name: string | null = null;
   
   if (profile.role === 'OEM' || profile.role === 'ACS_ADMIN') {
     const rawDealerInput = (formData.get('dealerId') || formData.get('dealerQuery')) as string;
-    if (!rawDealerInput || rawDealerInput.trim() === '') return { error: 'Dealer is required for admins/OEMs' };
+    if (rawDealerInput && rawDealerInput.trim() !== '') {
+      const trimmedDealer = rawDealerInput.trim();
+      const isDealerUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedDealer);
 
-    const trimmedDealer = rawDealerInput.trim();
-    const isDealerUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedDealer);
-
-    if (isDealerUuid) {
-      dealer_id = trimmedDealer;
-    } else {
-      const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-      const adminClient = createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-      const { data: dMatches } = await adminClient
-        .from('organizations')
-        .select('id, name')
-        .eq('type', 'DEALER')
-        .eq('status', 'ACTIVE')
-        .or(`display_id.eq.${trimmedDealer},contact_email.ilike.${trimmedDealer},contact_phone.eq.${trimmedDealer},name.ilike.${trimmedDealer}`);
-
-      if (!dMatches || dMatches.length === 0) {
-        const { data: partialDealers } = await adminClient
+      if (isDealerUuid) {
+        dealer_id = trimmedDealer;
+      } else {
+        const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+        const adminClient = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const { data: dMatches } = await adminClient
           .from('organizations')
           .select('id, name')
           .eq('type', 'DEALER')
           .eq('status', 'ACTIVE')
-          .ilike('name', `%${trimmedDealer}%`);
+          .or(`display_id.eq.${trimmedDealer},contact_email.ilike.${trimmedDealer},contact_phone.eq.${trimmedDealer},name.ilike.${trimmedDealer}`);
 
-        if (!partialDealers || partialDealers.length === 0) {
-          return { error: `No active Dealership found matching "${trimmedDealer}". Please check the dealer name or Display ID.` };
+        if (dMatches && dMatches.length === 1) {
+          dealer_id = dMatches[0].id;
+        } else {
+          const { data: partialDealers } = await adminClient
+            .from('organizations')
+            .select('id, name')
+            .eq('type', 'DEALER')
+            .eq('status', 'ACTIVE')
+            .ilike('name', `%${trimmedDealer}%`);
+
+          if (partialDealers && partialDealers.length === 1) {
+            dealer_id = partialDealers[0].id;
+          } else {
+            dealer_id = null;
+            custom_dealer_name = trimmedDealer;
+          }
         }
-        if (partialDealers.length > 1) {
-          return { error: `Multiple dealerships match "${trimmedDealer}". Please specify the exact email or Display ID.` };
-        }
-        dealer_id = partialDealers[0].id;
-      } else if (dMatches.length > 1) {
-        return { error: `Multiple dealerships match "${trimmedDealer}". Please specify the exact email or Display ID.` };
-      } else {
-        dealer_id = dMatches[0].id;
       }
-    }
 
-    if (profile.role === 'OEM') {
-      const { data: org } = await supabase.from('organizations').select('parent_org_id').eq('id', dealer_id).single();
-      if (!org || org.parent_org_id !== profile.org_id) {
-        return { error: 'Forbidden: Dealer does not belong to your organization' };
+      if (dealer_id && profile.role === 'OEM') {
+        const { data: org } = await supabase.from('organizations').select('parent_org_id').eq('id', dealer_id).single();
+        if (!org || org.parent_org_id !== profile.org_id) {
+          return { error: 'Forbidden: Dealer does not belong to your organization' };
+        }
       }
     }
   }
@@ -70,7 +68,13 @@ export async function createCustomer(formData: FormData) {
     return { error: 'Address is required.' };
   }
 
-  const { data, error } = await supabase.from('customers').insert({
+  const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data, error } = await adminClient.from('customers').insert({
     name: formData.get('name'),
     phone: formData.get('phone'),
     email: formData.get('email') || null,
@@ -78,7 +82,8 @@ export async function createCustomer(formData: FormData) {
     city: formData.get('city'),
     state: formData.get('state'),
     pincode: formData.get('pincode'),
-    dealer_id
+    dealer_id,
+    custom_dealer_name
   }).select().single();
 
   if (error) return { error: error.message };
@@ -122,48 +127,47 @@ export async function createVehicle(formData: FormData) {
   const { data: profile } = await supabase.from('profiles').select('role, org_id').eq('id', user.id).single();
   if (!profile || (profile.role !== 'ACS_ADMIN' && !profile.org_id)) return { error: 'No org' };
 
-  let dealer_id = profile.org_id;
+  let dealer_id: string | null = profile.role === 'DEALER' ? profile.org_id : null;
+  let custom_dealer_name: string | null = null;
+
   if (profile.role === 'OEM' || profile.role === 'ACS_ADMIN') {
     const rawDealerInput = (formData.get('dealerId') || formData.get('dealerQuery')) as string;
-    if (!rawDealerInput || rawDealerInput.trim() === '') return { error: 'Dealer is required' };
+    if (rawDealerInput && rawDealerInput.trim() !== '') {
+      const trimmedDealer = rawDealerInput.trim();
+      const isDealerUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedDealer);
 
-    const trimmedDealer = rawDealerInput.trim();
-    const isDealerUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedDealer);
-
-    if (isDealerUuid) {
-      dealer_id = trimmedDealer;
-    } else {
-      const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-      const adminClient = createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-      const { data: dMatches } = await adminClient
-        .from('organizations')
-        .select('id, name')
-        .eq('type', 'DEALER')
-        .eq('status', 'ACTIVE')
-        .or(`display_id.eq.${trimmedDealer},contact_email.ilike.${trimmedDealer},contact_phone.eq.${trimmedDealer},name.ilike.${trimmedDealer}`);
-
-      if (!dMatches || dMatches.length === 0) {
-        const { data: partialDealers } = await adminClient
+      if (isDealerUuid) {
+        dealer_id = trimmedDealer;
+      } else {
+        const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+        const adminClient = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const { data: dMatches } = await adminClient
           .from('organizations')
           .select('id, name')
           .eq('type', 'DEALER')
           .eq('status', 'ACTIVE')
-          .ilike('name', `%${trimmedDealer}%`);
+          .or(`display_id.eq.${trimmedDealer},contact_email.ilike.${trimmedDealer},contact_phone.eq.${trimmedDealer},name.ilike.${trimmedDealer}`);
 
-        if (!partialDealers || partialDealers.length === 0) {
-          return { error: `No active Dealership found matching "${trimmedDealer}". Please check dealer name or Display ID.` };
+        if (dMatches && dMatches.length === 1) {
+          dealer_id = dMatches[0].id;
+        } else {
+          const { data: partialDealers } = await adminClient
+            .from('organizations')
+            .select('id, name')
+            .eq('type', 'DEALER')
+            .eq('status', 'ACTIVE')
+            .ilike('name', `%${trimmedDealer}%`);
+
+          if (partialDealers && partialDealers.length === 1) {
+            dealer_id = partialDealers[0].id;
+          } else {
+            dealer_id = null;
+            custom_dealer_name = trimmedDealer;
+          }
         }
-        if (partialDealers.length > 1) {
-          return { error: `Multiple dealerships match "${trimmedDealer}". Please specify exact email or Display ID.` };
-        }
-        dealer_id = partialDealers[0].id;
-      } else if (dMatches.length > 1) {
-        return { error: `Multiple dealerships match "${trimmedDealer}". Please specify exact email or Display ID.` };
-      } else {
-        dealer_id = dMatches[0].id;
       }
     }
   }
@@ -174,27 +178,34 @@ export async function createVehicle(formData: FormData) {
   const trimmedCust = customerId.trim();
   const isCustUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedCust);
 
+  const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   if (!isCustUuid) {
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-    const adminClient = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    const { data: cMatches } = await adminClient
+    let custQuery = adminClient
       .from('customers')
-      .select('id, name, dealer_id')
-      .eq('dealer_id', dealer_id)
-      .or(`display_id.eq.${trimmedCust},phone.eq.${trimmedCust},email.ilike.${trimmedCust},name.ilike.${trimmedCust}`);
+      .select('id, name, dealer_id, custom_dealer_name');
+    
+    if (dealer_id) {
+      custQuery = custQuery.eq('dealer_id', dealer_id);
+    }
+    
+    const { data: cMatches } = await custQuery.or(`display_id.eq.${trimmedCust},phone.eq.${trimmedCust},email.ilike.${trimmedCust},name.ilike.${trimmedCust}`);
 
     if (!cMatches || cMatches.length === 0) {
-      const { data: partialCust } = await adminClient
+      let partialQuery = adminClient
         .from('customers')
-        .select('id, name, dealer_id')
-        .eq('dealer_id', dealer_id)
-        .ilike('name', `%${trimmedCust}%`);
+        .select('id, name, dealer_id, custom_dealer_name');
+      if (dealer_id) {
+        partialQuery = partialQuery.eq('dealer_id', dealer_id);
+      }
+      const { data: partialCust } = await partialQuery.ilike('name', `%${trimmedCust}%`);
 
       if (!partialCust || partialCust.length === 0) {
-        return { error: `No customer found matching "${trimmedCust}" for this dealer.` };
+        return { error: `No customer found matching "${trimmedCust}".` };
       }
       if (partialCust.length > 1) {
         return { error: `Multiple customers match "${trimmedCust}". Please specify exact phone number or Customer ID.` };
@@ -207,33 +218,31 @@ export async function createVehicle(formData: FormData) {
     }
   }
 
-  // Validate relational consistency between Customer and Dealer
-  const { data: customer } = await supabase.from('customers').select('dealer_id').eq('id', customerId).single();
+  // Fetch customer to resolve dealer_id / custom_dealer_name if not explicitly set
+  const { data: customer } = await adminClient.from('customers').select('dealer_id, custom_dealer_name').eq('id', customerId).single();
   if (!customer) return { error: 'Invalid customer' };
-  if (customer.dealer_id !== dealer_id) {
-    return { error: 'Mismatch: The selected Customer does not belong to the selected Dealer' };
+
+  if (!dealer_id && !custom_dealer_name) {
+    dealer_id = customer.dealer_id || null;
+    custom_dealer_name = customer.custom_dealer_name || null;
   }
 
   let oem_id = null;
   if (profile.role === 'OEM') {
-    const { data: org } = await supabase.from('organizations').select('parent_org_id').eq('id', dealer_id).single();
-    if (!org || org.parent_org_id !== profile.org_id) {
-      return { error: 'Forbidden: Dealer does not belong to your organization' };
-    }
     oem_id = profile.org_id;
-  }
-  else {
-    const { data: org } = await supabase.from('organizations').select('parent_org_id').eq('id', dealer_id).single();
+  } else if (dealer_id) {
+    const { data: org } = await adminClient.from('organizations').select('parent_org_id').eq('id', dealer_id).single();
     if (org && org.parent_org_id) oem_id = org.parent_org_id;
   }
 
-  const { data, error } = await supabase.from('vehicles').insert({
+  const { data, error } = await adminClient.from('vehicles').insert({
     vin: formData.get('vin'),
     model: formData.get('model'),
     sale_date: formData.get('sale_date') || new Date().toISOString().split('T')[0],
     delivery_date: formData.get('delivery_date') || new Date().toISOString().split('T')[0],
     customer_id: customerId,
     dealer_id,
+    custom_dealer_name,
     oem_id
   }).select().single();
 

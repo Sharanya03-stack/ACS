@@ -57,8 +57,8 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
 
     // Fetch customers, vehicles, and unassigned chargers
     const [custRes, vehRes, charRes] = await Promise.all([
-      supabase.from('customers').select('id, display_id, name, phone, dealer_id').order('name'),
-      supabase.from('vehicles').select('id, display_id, vin, model, customer_id'),
+      supabase.from('customers').select('id, display_id, name, phone, dealer_id, custom_dealer_name').order('name'),
+      supabase.from('vehicles').select('id, display_id, vin, model, customer_id, dealer_id, custom_dealer_name'),
       supabase.from('chargers').select(`
         id, display_id, serial_number, model, power_rating, customer_id, vehicle_id,
         installations ( id )
@@ -167,10 +167,14 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
     const formData = new FormData(e.currentTarget);
     formData.set('customerId', selectedCustomerId);
     
-    // Automatically inject the correct dealer ID from the selected customer
+    // Automatically inject the correct dealer ID or custom dealer name from the selected customer
     const customer = customers.find(c => c.id === selectedCustomerId);
-    if (customer && customer.dealer_id) {
-      formData.set('dealerId', customer.dealer_id);
+    if (customer) {
+      if (customer.dealer_id) {
+        formData.set('dealerId', customer.dealer_id);
+      } else if (customer.custom_dealer_name) {
+        formData.set('dealerId', customer.custom_dealer_name);
+      }
     }
 
     const res = await createVehicle(formData);

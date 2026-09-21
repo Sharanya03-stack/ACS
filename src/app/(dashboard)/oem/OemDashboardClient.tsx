@@ -333,7 +333,7 @@ export default function OemDashboardClient({
                 </tr>
               ) : (
                 installations.map((inst: any) => {
-                  const dealerName = inst.dealers?.name || '-';
+                  const dealerName = inst.dealers?.name || inst.custom_dealer_name || '-';
                   const dealerDisplayId = inst.dealers?.display_id;
                   
                   const customerName = inst.customers?.name || '-';

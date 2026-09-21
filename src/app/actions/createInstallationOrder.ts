@@ -23,6 +23,7 @@ export async function createInstallationOrder(formData: FormData) {
       customer_id,
       vehicles!inner (
         dealer_id,
+        custom_dealer_name,
         oem_id
       )
     `)
@@ -64,7 +65,7 @@ export async function createInstallationOrder(formData: FormData) {
   // Authorization and auto-assignment logic
   const oem_id = vehicle?.oem_id;
   let resolvedDealerId = vehicle?.dealer_id || null;
-  let custom_dealer_name: string | null = null;
+  let custom_dealer_name: string | null = vehicle?.custom_dealer_name || null;
   let custom_partner_name: string | null = null;
   let status = 'NEW';
 
