@@ -63,7 +63,9 @@ export async function createInstallationOrder(formData: FormData) {
 
   // Authorization and auto-assignment logic
   const oem_id = vehicle?.oem_id;
-  const dealer_id = vehicle?.dealer_id;
+  let resolvedDealerId = vehicle?.dealer_id || null;
+  let custom_dealer_name: string | null = null;
+  let custom_partner_name: string | null = null;
   let status = 'NEW';
 
   if (profile.role === 'PARTNER' || profile.role === 'TECHNICIAN') {
@@ -77,10 +79,65 @@ export async function createInstallationOrder(formData: FormData) {
     technician_id = null;
   }
 
+  let rawDealerInput = (formData.get('dealer_id') || formData.get('dealer_query')) as string || null;
+  if (rawDealerInput && rawDealerInput.trim() !== '') {
+    const trimmed = rawDealerInput.trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+    if (isUuid) {
+      resolvedDealerId = trimmed;
+    } else {
+      const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+      const adminClient = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      const { data: matches } = await adminClient
+        .from('organizations')
+        .select('id, name')
+        .eq('type', 'DEALER')
+        .eq('status', 'ACTIVE')
+        .or(`display_id.eq.${trimmed},contact_email.ilike.${trimmed},name.ilike.${trimmed}`);
+
+      if (matches && matches.length === 1) {
+        resolvedDealerId = matches[0].id;
+      } else {
+        const { data: partialMatches } = await adminClient
+          .from('organizations')
+          .select('id, name')
+          .eq('type', 'DEALER')
+          .eq('status', 'ACTIVE')
+          .ilike('name', `%${trimmed}%`);
+
+        if (partialMatches && partialMatches.length === 1) {
+          resolvedDealerId = partialMatches[0].id;
+        } else {
+          resolvedDealerId = null;
+          custom_dealer_name = trimmed;
+        }
+      }
+    }
+  }
+
   if (partner_id && partner_id.trim() !== '') {
     const trimmed = partner_id.trim();
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
-    if (!isUuid) {
+    if (isUuid) {
+      const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+      const adminClient = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      const { data: p } = await adminClient
+        .from('organizations')
+        .select('id, type, status')
+        .eq('id', trimmed)
+        .maybeSingle();
+      if (p && p.type === 'PARTNER' && p.status === 'ACTIVE') {
+        partner_id = p.id;
+      } else {
+        partner_id = null;
+      }
+    } else {
       const { createClient: createAdminClient } = await import('@supabase/supabase-js');
       const adminClient = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -93,7 +150,9 @@ export async function createInstallationOrder(formData: FormData) {
         .eq('status', 'ACTIVE')
         .or(`display_id.eq.${trimmed},contact_email.ilike.${trimmed},name.ilike.${trimmed}`);
 
-      if (!matches || matches.length === 0) {
+      if (matches && matches.length === 1) {
+        partner_id = matches[0].id;
+      } else {
         const { data: partialMatches } = await adminClient
           .from('organizations')
           .select('id, name')
@@ -101,17 +160,12 @@ export async function createInstallationOrder(formData: FormData) {
           .eq('status', 'ACTIVE')
           .ilike('name', `%${trimmed}%`);
 
-        if (!partialMatches || partialMatches.length === 0) {
-          return { success: false, error: `No active Installation Partner found matching "${trimmed}". Please check the partner name or ID.` };
+        if (partialMatches && partialMatches.length === 1) {
+          partner_id = partialMatches[0].id;
+        } else {
+          partner_id = null;
+          custom_partner_name = trimmed;
         }
-        if (partialMatches.length > 1) {
-          return { success: false, error: `Multiple partners match "${trimmed}". Please enter exact email or Display ID.` };
-        }
-        partner_id = partialMatches[0].id;
-      } else if (matches.length > 1) {
-        return { success: false, error: `Multiple partners match "${trimmed}". Please enter exact email or Display ID.` };
-      } else {
-        partner_id = matches[0].id;
       }
     }
   } else {
@@ -119,13 +173,16 @@ export async function createInstallationOrder(formData: FormData) {
   }
 
   if (partner_id && status === 'NEW') status = 'PARTNER_ASSIGNED';
-  if (technician_id) status = 'TECHNICIAN_ASSIGNED';
+  if (technician_id && partner_id) status = 'TECHNICIAN_ASSIGNED';
+  else technician_id = null;
 
   const { data: newOrder, error } = await supabase.from('installations').insert({
     charger_id: charger.id,
     vehicle_id: charger.vehicle_id,
     customer_id: charger.customer_id,
-    dealer_id: dealer_id,
+    dealer_id: resolvedDealerId,
+    custom_dealer_name,
+    custom_partner_name,
     oem_id: oem_id,
     category,
     scheduled_date,

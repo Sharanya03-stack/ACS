@@ -91,40 +91,52 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
         .is('deleted_at', null)
         .ilike('name', `%${trimmed}%`);
 
-      if (!partialMatches || partialMatches.length === 0) {
-        return { success: false, error: `No active Installation Partner found matching "${trimmed}". Please check the exact partner name, email, or Display ID.` };
+      if (partialMatches && partialMatches.length === 1) {
+        targetPartner = partialMatches[0];
       }
-      if (partialMatches.length > 1) {
-        return { success: false, error: `Multiple partners match "${trimmed}". Please enter the exact email address or Display ID.` };
-      }
-      targetPartner = partialMatches[0];
-    } else if (matches.length > 1) {
-      return { success: false, error: `Multiple partners match "${trimmed}". Please enter the exact email address or Display ID.` };
-    } else {
+    } else if (matches.length === 1) {
       targetPartner = matches[0];
     }
   }
 
-  const partnerId = targetPartner.id;
-
-  if (existing.partner_id === partnerId) {
-    return { success: true, message: 'Partner already assigned' };
-  }
-
-  const isPartnerChanging = existing.partner_id !== partnerId;
-  const newStatus = (!existing.status || existing.status === 'NEW' || (isPartnerChanging && existing.status === 'TECHNICIAN_ASSIGNED')) ? 'PARTNER_ASSIGNED' : existing.status;
-
-  const updatePayload: any = {
-    status: newStatus,
-    partner_id: partnerId,
+  let updatePayload: any = {
     updated_at: new Date().toISOString()
   };
 
-  if (isPartnerChanging) {
-    updatePayload.technician_id = null;
+  if (targetPartner) {
+    const partnerId = targetPartner.id;
+
+    if (existing.partner_id === partnerId) {
+      return { success: true, message: 'Partner already assigned' };
+    }
+
+    const isPartnerChanging = existing.partner_id !== partnerId;
+    const newStatus = (!existing.status || existing.status === 'NEW' || (isPartnerChanging && existing.status === 'TECHNICIAN_ASSIGNED')) ? 'PARTNER_ASSIGNED' : existing.status;
+
+    updatePayload = {
+      ...updatePayload,
+      status: newStatus,
+      partner_id: partnerId,
+      custom_partner_name: null
+    };
+
+    if (isPartnerChanging) {
+      updatePayload.technician_id = null;
+    }
+  } else {
+    // Unregistered custom partner name
+    const newStatus = (existing.status === 'PARTNER_ASSIGNED' || existing.status === 'TECHNICIAN_ASSIGNED') ? 'NEW' : (existing.status || 'NEW');
+
+    updatePayload = {
+      ...updatePayload,
+      status: newStatus,
+      partner_id: null,
+      custom_partner_name: trimmed,
+      technician_id: null
+    };
   }
 
-  // 4. Assign the partner
+  // 4. Assign the partner / custom partner name
   const { data: updatedData, error: updateError } = await adminClient
     .from('installations')
     .update(updatePayload)
@@ -141,20 +153,22 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
     return { success: false, error: 'Failed to assign partner. Installation record was not updated.' };
   }
 
-  // 5. Send Notifications Non-Blockingly
-  notifyPartnerAssigned(installationId, partnerId).catch(console.error);
-  
-  notifyOrganization(
-    partnerId, 
-    'PARTNER', 
-    'New Installation Assigned', 
-    `Installation ${installationId} has been assigned to your organization.`,
-    'installations',
-    installationId
-  ).catch(console.error);
+  // 5. Send Notifications Non-Blockingly if a real partner was assigned
+  if (targetPartner) {
+    notifyPartnerAssigned(installationId, targetPartner.id).catch(console.error);
+    
+    notifyOrganization(
+      targetPartner.id, 
+      'PARTNER', 
+      'New Installation Assigned', 
+      `Installation ${installationId} has been assigned to your organization.`,
+      'installations',
+      installationId
+    ).catch(console.error);
+  }
 
   revalidatePath('/', 'layout');
-  return { success: true, partnerName: targetPartner.name };
+  return { success: true, partnerName: targetPartner ? targetPartner.name : trimmed };
 }
 
 export async function getActivePartnersAction() {

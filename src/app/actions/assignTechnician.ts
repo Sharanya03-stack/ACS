@@ -50,7 +50,7 @@ export async function assignTechnician(installationId: string, technicianInput: 
   }
 
   if (!installation.partner_id) {
-    return { error: 'Cannot assign technician: Please assign an Installation Partner to this job first.' };
+    return { error: 'Cannot assign technician: Please assign a registered Partner Organization first.' };
   }
 
   if (!technicianInput || technicianInput.trim() === '') {

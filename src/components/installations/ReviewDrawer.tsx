@@ -261,6 +261,10 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
                     <p>{details.customers?.address}</p>
                   </div>
                   <div>
+                    <h3 className="font-medium text-gray-500">Dealer</h3>
+                    <p className="font-semibold">{details.dealer?.name || details.custom_dealer_name || 'N/A'}</p>
+                  </div>
+                  <div>
                     <h3 className="font-medium text-gray-500">Vehicle</h3>
                     <p>{details.vehicles?.model}</p>
                     <p>VIN: {details.vehicles?.vin}</p>
@@ -274,7 +278,7 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
                   <div>
                     <h3 className="font-medium text-gray-500 mb-1">Installation</h3>
                     <p>Category: {details.category}</p>
-                    <p>Partner: {details.partner?.name || 'Unassigned'}</p>
+                    <p>Partner: {details.partner?.name || (details.custom_partner_name ? `${details.custom_partner_name} (Not registered)` : 'Unassigned')}</p>
                     <div className="mt-2">
                       <p className="text-gray-500 font-medium text-sm">Technician:</p>
                       <p className="font-semibold text-gray-800">{details.technician?.name || 'Unassigned'}</p>

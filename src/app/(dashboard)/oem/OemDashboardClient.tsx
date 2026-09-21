@@ -516,10 +516,12 @@ export default function OemDashboardClient({
 
                   <div>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Dealer & Vehicle</h3>
-                    <p className="text-sm font-medium text-gray-900">Dealer: {selectedInst.dealers?.name || '-'}</p>
-                    {selectedInst.dealers?.display_id && (
+                    <p className="text-sm font-medium text-gray-900">Dealer: {selectedInst.dealers?.name || selectedInst.custom_dealer_name || '-'}</p>
+                    {selectedInst.dealers?.display_id ? (
                       <p className="text-xs text-gray-500 font-mono mb-2">Dealer ID: {selectedInst.dealers.display_id}</p>
-                    )}
+                    ) : selectedInst.custom_dealer_name ? (
+                      <p className="text-xs text-amber-600 font-medium mb-2">(Unregistered Dealer)</p>
+                    ) : null}
                     <p className="text-sm text-gray-700">Vehicle VIN: <span className="font-mono">{selectedInst.vehicles?.vin || '-'}</span></p>
                     <p className="text-sm text-gray-700">Charger ID: <span className="font-mono">{selectedInst.chargers?.display_id || '-'}</span></p>
                     <p className="text-sm text-gray-700">Charger Serial: <span className="font-mono">{selectedInst.chargers?.serial_number || '-'}</span></p>
@@ -531,16 +533,16 @@ export default function OemDashboardClient({
                       <div>
                         <div className="flex items-center justify-between">
                           <p className="text-xs text-gray-500">Partner Organization</p>
-                          {selectedInst.partner_id && !isEditingPartner && (
+                          {(selectedInst.partner_id || selectedInst.custom_partner_name) && !isEditingPartner && (
                             <button
                               type="button"
                               onClick={() => {
                                 setIsEditingPartner(true);
-                                setPartnerSearchQuery(selectedInst.partners?.name || '');
+                                setPartnerSearchQuery(selectedInst.partners?.name || selectedInst.custom_partner_name || '');
                               }}
                               className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
                             >
-                              Reassign
+                              {selectedInst.partner_id ? 'Reassign' : 'Edit'}
                             </button>
                           )}
                         </div>
@@ -550,6 +552,11 @@ export default function OemDashboardClient({
                             {selectedInst.partners?.display_id && (
                               <p className="text-xs text-gray-500 font-mono">Partner ID: {selectedInst.partners.display_id}</p>
                             )}
+                          </>
+                        ) : selectedInst.custom_partner_name && !isEditingPartner ? (
+                          <>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">{selectedInst.custom_partner_name}</p>
+                            <p className="text-xs text-amber-600 font-medium">(Not registered)</p>
                           </>
                         ) : (
                           <form 
@@ -574,9 +581,9 @@ export default function OemDashboardClient({
                               disabled={isAssigningPartner || !partnerSearchQuery.trim()}
                               className="px-3 py-1.5 bg-[#243B36] text-white text-xs font-semibold rounded hover:bg-[#1b2d29] disabled:opacity-50 whitespace-nowrap"
                             >
-                              {isAssigningPartner ? 'Assigning...' : selectedInst.partner_id ? 'Save' : 'Assign'}
+                              {isAssigningPartner ? 'Assigning...' : (selectedInst.partner_id || selectedInst.custom_partner_name) ? 'Save' : 'Assign'}
                             </button>
-                            {selectedInst.partner_id && (
+                            {(selectedInst.partner_id || selectedInst.custom_partner_name) && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -610,7 +617,7 @@ export default function OemDashboardClient({
                           )}
                         </div>
                         {!selectedInst.partner_id ? (
-                          <p className="text-xs text-gray-400 italic mt-1">Assign Partner first</p>
+                          <p className="text-xs text-gray-400 italic mt-1">Assign a registered Partner first</p>
                         ) : selectedInst.technician_id && !isEditingTech ? (
                           <>
                             <p className="text-sm font-semibold text-gray-900 mt-1">{selectedInst.technicians?.name || 'Assigned'}</p>

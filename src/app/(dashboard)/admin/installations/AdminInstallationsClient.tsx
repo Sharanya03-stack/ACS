@@ -311,12 +311,12 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                       <div className="text-sm font-medium text-gray-900">{c?.name}</div>
                       <div className="text-sm text-gray-500">{c?.city}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{d?.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{d?.name || inst.custom_dealer_name || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{inst.chargers?.serial_number || 'N/A'}</div>
                       <div className="text-sm text-gray-500">{inst.chargers?.model}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p?.name || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p?.name || (inst.custom_partner_name ? `${inst.custom_partner_name} (Not registered)` : '-')}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(inst.status)}`}>
                         {inst.status}
@@ -537,7 +537,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                       </div>
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Dealer</h3>
-                        <p className="mt-1 text-sm text-gray-900">{selectedInst.dealers?.name}</p>
+                        <p className="mt-1 text-sm text-gray-900">{selectedInst.dealers?.name || selectedInst.custom_dealer_name || 'N/A'}</p>
                       </div>
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Partner Organization</h3>
@@ -548,6 +548,8 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                               <p className="text-sm text-gray-500">{selectedInst.partners.address}</p>
                             )}
                           </>
+                        ) : selectedInst.custom_partner_name ? (
+                          <p className="text-sm text-gray-900 mt-1 font-medium">{selectedInst.custom_partner_name} <span className="text-xs text-gray-500 italic">(Not registered)</span></p>
                         ) : (
                           <form 
                             onSubmit={(e) => {

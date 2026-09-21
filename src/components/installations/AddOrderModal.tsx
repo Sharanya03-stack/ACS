@@ -488,15 +488,26 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                     </div>
 
                     {(userRole === 'ACS_ADMIN' || userRole === 'OEM') && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Assign Partner (Optional)</label>
-                        <input
-                          type="text"
-                          name="partner_id"
-                          placeholder="Partner Name / Contact Email / Display ID"
-                          className="w-full border rounded-md p-2 text-sm focus:ring-gray-900 focus:border-gray-900 bg-white"
-                        />
-                      </div>
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Dealer (Optional)</label>
+                          <input
+                            type="text"
+                            name="dealer_id"
+                            placeholder="Dealer Name / Email / ID"
+                            className="w-full border rounded-md p-2 text-sm focus:ring-gray-900 focus:border-gray-900 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Assign Partner (Optional)</label>
+                          <input
+                            type="text"
+                            name="partner_id"
+                            placeholder="Partner Name / Contact Email / Display ID"
+                            className="w-full border rounded-md p-2 text-sm focus:ring-gray-900 focus:border-gray-900 bg-white"
+                          />
+                        </div>
+                      </>
                     )}
 
                     <div>
