@@ -115,18 +115,24 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
   const newStatus = (!existing.status || existing.status === 'NEW') ? 'PARTNER_ASSIGNED' : existing.status;
 
   // 4. Assign the partner
-  const { error: updateError } = await supabase
+  const { data: updatedData, error: updateError } = await adminClient
     .from('installations')
     .update({ 
       status: newStatus, 
       partner_id: partnerId,
       updated_at: new Date().toISOString()
     })
-    .eq('id', installationId);
+    .eq('id', installationId)
+    .select('id');
 
   if (updateError) {
     console.error(`[Assignment Error] Installation ${installationId}:`, updateError);
     return { success: false, error: 'Failed to assign partner due to a database error.' };
+  }
+
+  if (!updatedData || updatedData.length === 0) {
+    console.error(`[Assignment Error] Installation ${installationId}: No rows updated.`);
+    return { success: false, error: 'Failed to assign partner. Installation record was not updated.' };
   }
 
   // 5. Send Notifications Non-Blockingly
