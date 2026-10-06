@@ -13,10 +13,12 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
   const [customers, setCustomers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [chargers, setChargers] = useState<any[]>([]);
+  const [oems, setOems] = useState<any[]>([]);
   
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [selectedChargerId, setSelectedChargerId] = useState('');
+  const [selectedOemId, setSelectedOemId] = useState('');
   const [customerSearchInput, setCustomerSearchInput] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -55,18 +57,20 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
       }
     }
 
-    // Fetch customers, vehicles, and unassigned chargers
-    const [custRes, vehRes, charRes] = await Promise.all([
+    // Fetch customers, vehicles, unassigned chargers, and active OEMs
+    const [custRes, vehRes, charRes, oemsRes] = await Promise.all([
       supabase.from('customers').select('id, display_id, name, phone, dealer_id, custom_dealer_name').order('name'),
-      supabase.from('vehicles').select('id, display_id, vin, model, customer_id, dealer_id, custom_dealer_name'),
+      supabase.from('vehicles').select('id, display_id, vin, model, customer_id, dealer_id, custom_dealer_name, oem_id'),
       supabase.from('chargers').select(`
         id, display_id, serial_number, model, power_rating, customer_id, vehicle_id,
         installations ( id )
-      `)
+      `),
+      supabase.from('organizations').select('id, name').eq('type', 'OEM').eq('status', 'ACTIVE').is('deleted_at', null).order('name')
     ]);
 
     if (custRes.data) setCustomers(custRes.data);
     if (vehRes.data) setVehicles(vehRes.data);
+    if (oemsRes.data) setOems(oemsRes.data);
     if (charRes.data) {
        const unassigned = charRes.data.filter(c => !c.installations || c.installations.length === 0);
        setChargers(unassigned);
@@ -102,8 +106,22 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
       setSelectedChargerId('');
       setIsCreatingVehicle(false);
       setIsCreatingCharger(false);
+
+      // Pre-fill OEM if admin and customer's existing vehicles belong to a single OEM
+      const customer = customers.find(c => c.id === selectedCustomerId);
+      if (customer && !customer.dealer_id) {
+        const custVehs = vehicles.filter(v => v.customer_id === selectedCustomerId && v.oem_id);
+        const uniqueOemIds = Array.from(new Set(custVehs.map(v => v.oem_id)));
+        if (uniqueOemIds.length === 1) {
+          setSelectedOemId(uniqueOemIds[0] as string);
+        } else {
+          setSelectedOemId('');
+        }
+      } else {
+        setSelectedOemId('');
+      }
     }
-  }, [selectedCustomerId]);
+  }, [selectedCustomerId, customers, vehicles]);
 
   // Reset dependent dropdowns when vehicle changes
   useEffect(() => {
@@ -175,6 +193,10 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
       } else if (customer.custom_dealer_name) {
         formData.set('dealerId', customer.custom_dealer_name);
       }
+    }
+
+    if (userRole === 'ACS_ADMIN' && selectedOemId) {
+      formData.set('oemId', selectedOemId);
     }
 
     const res = await createVehicle(formData);
@@ -346,9 +368,29 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                     <p className="text-sm text-gray-500 italic">Select a customer first</p>
                   ) : isCreatingVehicle ? (
                     <form onSubmit={handleCreateVehicle} className="space-y-3">
+                      {userRole === 'ACS_ADMIN' && customers.find(c => c.id === selectedCustomerId) && !customers.find(c => c.id === selectedCustomerId)?.dealer_id && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">OEM (Vehicle Manufacturer) *</label>
+                          <select
+                            name="oemId"
+                            required
+                            value={selectedOemId}
+                            onChange={(e) => setSelectedOemId(e.target.value)}
+                            className="w-full border rounded-md p-2 text-sm bg-white focus:ring-gray-900 focus:border-gray-900"
+                          >
+                            <option value="">-- Select OEM --</option>
+                            {oems.map(oem => (
+                              <option key={oem.id} value={oem.id}>{oem.name}</option>
+                            ))}
+                          </select>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            This customer has an unregistered/custom dealer. Please select the OEM for this vehicle.
+                          </p>
+                        </div>
+                      )}
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">VIN (Vehicle Identification Number)</label>
-                        <input type="text" name="vin" required className="w-full border rounded-md p-2 text-sm bg-white" placeholder="Enter VIN" />
+                        <input type="text" name="vin" required className="w-full border rounded-md p-2 text-sm bg-white uppercase" placeholder="Enter VIN" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Vehicle Model</label>

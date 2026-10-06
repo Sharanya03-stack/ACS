@@ -104,6 +104,11 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
     return null; // No Add button for these pages
   }
 
+  // Partners and Technicians are not permitted to create vehicles
+  if (page === 'vehicles' && (userRole === 'PARTNER' || userRole === 'partner' || userRole === 'TECHNICIAN' || userRole === 'technician')) {
+    return null;
+  }
+
   const entityName = page.charAt(0).toUpperCase() + page.slice(1, -1); // e.g. "Oem", "Dealership", "Partner", "Technician"
 
   return (
@@ -215,6 +220,18 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
           {/* Vehicles */}
           {page === 'vehicles' && (
             <>
+              {(userRole === 'ACS_ADMIN' || userRole === 'admin') && oems && oems.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">OEM (Manufacturer)</label>
+                  <select name="oemId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]">
+                    <option value="">-- Auto-detect from Dealer/Customer or Select OEM --</option>
+                    {oems.map(oem => (
+                      <option key={oem.id} value={oem.id}>{oem.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {(userRole === 'OEM' || userRole === 'oem' || userRole === 'ACS_ADMIN' || userRole === 'admin') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Dealer (Name / Email / ID)</label>
@@ -229,7 +246,7 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">VIN *</label>
-                <input required type="text" name="vin" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
+                <input required type="text" name="vin" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 uppercase focus:border-[#243B36] focus:ring-[#243B36]" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Model *</label>

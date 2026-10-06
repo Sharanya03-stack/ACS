@@ -125,58 +125,12 @@ export async function createVehicle(formData: FormData) {
   if (!user) return { error: 'Unauthorized' };
   
   const { data: profile } = await supabase.from('profiles').select('role, org_id').eq('id', user.id).single();
-  if (!profile || (profile.role !== 'ACS_ADMIN' && !profile.org_id)) return { error: 'No org' };
+  if (!profile || (profile.role !== 'ACS_ADMIN' && !profile.org_id)) return { error: 'No organization profile found' };
 
-  let dealer_id: string | null = profile.role === 'DEALER' ? profile.org_id : null;
-  let custom_dealer_name: string | null = null;
-
-  if (profile.role === 'OEM' || profile.role === 'ACS_ADMIN') {
-    const rawDealerInput = (formData.get('dealerId') || formData.get('dealerQuery')) as string;
-    if (rawDealerInput && rawDealerInput.trim() !== '') {
-      const trimmedDealer = rawDealerInput.trim();
-      const isDealerUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedDealer);
-
-      if (isDealerUuid) {
-        dealer_id = trimmedDealer;
-      } else {
-        const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-        const adminClient = createAdminClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-        const { data: dMatches } = await adminClient
-          .from('organizations')
-          .select('id, name')
-          .eq('type', 'DEALER')
-          .eq('status', 'ACTIVE')
-          .or(`display_id.eq.${trimmedDealer},contact_email.ilike.${trimmedDealer},contact_phone.eq.${trimmedDealer},name.ilike.${trimmedDealer}`);
-
-        if (dMatches && dMatches.length === 1) {
-          dealer_id = dMatches[0].id;
-        } else {
-          const { data: partialDealers } = await adminClient
-            .from('organizations')
-            .select('id, name')
-            .eq('type', 'DEALER')
-            .eq('status', 'ACTIVE')
-            .ilike('name', `%${trimmedDealer}%`);
-
-          if (partialDealers && partialDealers.length === 1) {
-            dealer_id = partialDealers[0].id;
-          } else {
-            dealer_id = null;
-            custom_dealer_name = trimmedDealer;
-          }
-        }
-      }
-    }
+  // 1. Role Authorization: Only ACS_ADMIN, OEM, DEALER can create vehicles
+  if (profile.role !== 'ACS_ADMIN' && profile.role !== 'OEM' && profile.role !== 'DEALER') {
+    return { error: 'Unauthorized to create vehicles. Only Administrators, OEMs, and Dealers can perform this action.' };
   }
-
-  let customerId = (formData.get('customerId') || formData.get('customerQuery')) as string;
-  if (!customerId || customerId.trim() === '') return { error: 'Customer is required' };
-
-  const trimmedCust = customerId.trim();
-  const isCustUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedCust);
 
   const { createClient: createAdminClient } = await import('@supabase/supabase-js');
   const adminClient = createAdminClient(
@@ -184,13 +138,33 @@ export async function createVehicle(formData: FormData) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  if (!isCustUuid) {
+  // 2. Resolve Customer server-side
+  let customerId = (formData.get('customerId') || formData.get('customer_id') || formData.get('customerQuery')) as string;
+  if (!customerId || customerId.trim() === '') return { error: 'Customer is required' };
+
+  const trimmedCust = customerId.trim();
+  const isCustUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedCust);
+
+  let resolvedCustomerId: string;
+
+  if (isCustUuid) {
+    const { data: cData, error: cErr } = await adminClient
+      .from('customers')
+      .select('id, name, dealer_id, custom_dealer_name')
+      .eq('id', trimmedCust)
+      .maybeSingle();
+
+    if (cErr || !cData) {
+      return { error: 'Invalid or non-existent customer selected.' };
+    }
+    resolvedCustomerId = cData.id;
+  } else {
     let custQuery = adminClient
       .from('customers')
       .select('id, name, dealer_id, custom_dealer_name');
     
-    if (dealer_id) {
-      custQuery = custQuery.eq('dealer_id', dealer_id);
+    if (profile.role === 'DEALER') {
+      custQuery = custQuery.eq('dealer_id', profile.org_id);
     }
     
     const { data: cMatches } = await custQuery.or(`display_id.eq.${trimmedCust},phone.eq.${trimmedCust},email.ilike.${trimmedCust},name.ilike.${trimmedCust}`);
@@ -199,8 +173,8 @@ export async function createVehicle(formData: FormData) {
       let partialQuery = adminClient
         .from('customers')
         .select('id, name, dealer_id, custom_dealer_name');
-      if (dealer_id) {
-        partialQuery = partialQuery.eq('dealer_id', dealer_id);
+      if (profile.role === 'DEALER') {
+        partialQuery = partialQuery.eq('dealer_id', profile.org_id);
       }
       const { data: partialCust } = await partialQuery.ilike('name', `%${trimmedCust}%`);
 
@@ -210,43 +184,180 @@ export async function createVehicle(formData: FormData) {
       if (partialCust.length > 1) {
         return { error: `Multiple customers match "${trimmedCust}". Please specify exact phone number or Customer ID.` };
       }
-      customerId = partialCust[0].id;
+      resolvedCustomerId = partialCust[0].id;
     } else if (cMatches.length > 1) {
       return { error: `Multiple customers match "${trimmedCust}". Please specify exact phone number or Customer ID.` };
     } else {
-      customerId = cMatches[0].id;
+      resolvedCustomerId = cMatches[0].id;
     }
   }
 
-  // Fetch customer to resolve dealer_id / custom_dealer_name if not explicitly set
-  const { data: customer } = await adminClient.from('customers').select('dealer_id, custom_dealer_name').eq('id', customerId).single();
-  if (!customer) return { error: 'Invalid customer' };
+  // Fetch full customer details
+  const { data: customer, error: fetchCustErr } = await adminClient
+    .from('customers')
+    .select('id, display_id, name, dealer_id, custom_dealer_name')
+    .eq('id', resolvedCustomerId)
+    .single();
 
-  if (!dealer_id && !custom_dealer_name) {
-    dealer_id = customer.dealer_id || null;
-    custom_dealer_name = customer.custom_dealer_name || null;
+  if (fetchCustErr || !customer) {
+    return { error: 'Customer not found.' };
   }
 
-  let oem_id = null;
+  // 3. Customer Authorization & Scope Check for Caller
+  if (profile.role === 'DEALER') {
+    if (customer.dealer_id && customer.dealer_id !== profile.org_id) {
+      return { error: 'Unauthorized: Customer belongs to a different dealer.' };
+    }
+  } else if (profile.role === 'OEM') {
+    if (customer.dealer_id) {
+      const { data: dealerOrg } = await adminClient
+        .from('organizations')
+        .select('parent_org_id')
+        .eq('id', customer.dealer_id)
+        .maybeSingle();
+      if (dealerOrg && dealerOrg.parent_org_id && dealerOrg.parent_org_id !== profile.org_id) {
+        return { error: 'Unauthorized: Customer dealer belongs to a different OEM.' };
+      }
+    }
+  }
+
+  // 4. Resolve Dealer & Custom Dealer Name (Preserve customer dealer info exactly; no fuzzy matching)
+  let dealer_id: string | null = customer.dealer_id || null;
+  let custom_dealer_name: string | null = customer.custom_dealer_name || null;
+
+  if (profile.role === 'DEALER') {
+    dealer_id = profile.org_id;
+  } else {
+    const rawDealerInput = (formData.get('dealerId') || formData.get('dealer_id') || formData.get('dealerQuery')) as string;
+    if (rawDealerInput && rawDealerInput.trim() !== '') {
+      const trimmedDealer = rawDealerInput.trim();
+      const isDealerUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedDealer);
+
+      if (isDealerUuid) {
+        const { data: dOrg } = await adminClient
+          .from('organizations')
+          .select('id, type, status')
+          .eq('id', trimmedDealer)
+          .eq('type', 'DEALER')
+          .maybeSingle();
+        if (dOrg) {
+          dealer_id = dOrg.id;
+          custom_dealer_name = null;
+        }
+      }
+    }
+  }
+
+  // 5. Derive OEM ID strictly
+  let oem_id: string | null = null;
+
   if (profile.role === 'OEM') {
     oem_id = profile.org_id;
   } else if (dealer_id) {
-    const { data: org } = await adminClient.from('organizations').select('parent_org_id').eq('id', dealer_id).single();
-    if (org && org.parent_org_id) oem_id = org.parent_org_id;
+    const { data: org } = await adminClient
+      .from('organizations')
+      .select('parent_org_id')
+      .eq('id', dealer_id)
+      .maybeSingle();
+    if (org && org.parent_org_id) {
+      oem_id = org.parent_org_id;
+    }
   }
 
+  // If OEM ID is still null (e.g. Admin creating for customer with custom/unregistered dealer or standalone dealer without parent_org_id)
+  if (!oem_id) {
+    const rawOemInput = (formData.get('oemId') || formData.get('oem_id')) as string;
+    if (rawOemInput && rawOemInput.trim() !== '') {
+      const trimmedOem = rawOemInput.trim();
+      const isOemUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedOem);
+      if (isOemUuid) {
+        const { data: validOem } = await adminClient
+          .from('organizations')
+          .select('id')
+          .eq('id', trimmedOem)
+          .eq('type', 'OEM')
+          .eq('status', 'ACTIVE')
+          .is('deleted_at', null)
+          .maybeSingle();
+        if (validOem) {
+          oem_id = validOem.id;
+        }
+      }
+    }
+
+    // If still null, check if customer already has vehicles from a single OEM
+    if (!oem_id) {
+      const { data: existingVehicles } = await adminClient
+        .from('vehicles')
+        .select('oem_id')
+        .eq('customer_id', customer.id)
+        .not('oem_id', 'is', null);
+
+      if (existingVehicles && existingVehicles.length > 0) {
+        const uniqueOems = Array.from(new Set(existingVehicles.map(v => v.oem_id).filter(Boolean)));
+        if (uniqueOems.length === 1) {
+          oem_id = uniqueOems[0];
+        }
+      }
+    }
+  }
+
+  if (!oem_id) {
+    return { error: 'Unable to determine OEM for this vehicle. Please select an OEM or assign a registered dealer associated with an OEM.' };
+  }
+
+  // 6. Validate & Normalize VIN
+  const rawVin = formData.get('vin') as string;
+  if (!rawVin || rawVin.trim() === '') {
+    return { error: 'VIN is required.' };
+  }
+  const vin = rawVin.trim().toUpperCase();
+
+  // Pre-check for duplicate VIN
+  const { data: existingVin } = await adminClient
+    .from('vehicles')
+    .select('id, vin, customer_id')
+    .ilike('vin', vin)
+    .maybeSingle();
+
+  if (existingVin) {
+    if (existingVin.customer_id === customer.id) {
+      return { error: 'This VIN already exists for this customer. Please select the existing vehicle.' };
+    }
+    return { error: 'VIN already exists. Please use a different VIN or select the existing vehicle.' };
+  }
+
+  // 7. Validate Model & Dates
+  const model = (formData.get('model') as string)?.trim();
+  if (!model) {
+    return { error: 'Vehicle model is required.' };
+  }
+
+  const sale_date = (formData.get('sale_date') as string)?.trim() || new Date().toISOString().split('T')[0];
+  const delivery_date = (formData.get('delivery_date') as string)?.trim() || new Date().toISOString().split('T')[0];
+
+  // 8. Insert Vehicle Record
   const { data, error } = await adminClient.from('vehicles').insert({
-    vin: formData.get('vin'),
-    model: formData.get('model'),
-    sale_date: formData.get('sale_date') || new Date().toISOString().split('T')[0],
-    delivery_date: formData.get('delivery_date') || new Date().toISOString().split('T')[0],
-    customer_id: customerId,
+    vin,
+    model,
+    sale_date,
+    delivery_date,
+    customer_id: customer.id,
     dealer_id,
     custom_dealer_name,
     oem_id
   }).select().single();
 
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === '23505' || error.message?.includes('vehicles_vin_key') || error.message?.includes('unique constraint')) {
+      return { error: 'VIN already exists. Please use a different VIN or select the existing vehicle.' };
+    }
+    if (error.message?.includes('null value in column "oem_id"')) {
+      return { error: 'OEM is required for vehicle creation. Please select an OEM.' };
+    }
+    return { error: error.message };
+  }
+
   revalidatePath('/', 'layout');
   return { success: true, id: data?.id, data };
 }
@@ -263,14 +374,27 @@ export async function updateVehicle(id: string, formData: FormData) {
     return { error: 'Unauthorized to update vehicle' };
   }
 
-  const { error } = await supabase.from('vehicles').update({
-    vin: formData.get('vin'),
-    model: formData.get('model'),
-    sale_date: formData.get('sale_date') || new Date().toISOString().split('T')[0],
-    delivery_date: formData.get('delivery_date') || new Date().toISOString().split('T')[0],
-  }).eq('id', id);
+  const rawVin = formData.get('vin') as string;
+  const vin = rawVin ? rawVin.trim().toUpperCase() : undefined;
+  const model = (formData.get('model') as string)?.trim();
+  const sale_date = formData.get('sale_date') || new Date().toISOString().split('T')[0];
+  const delivery_date = formData.get('delivery_date') || new Date().toISOString().split('T')[0];
 
-  if (error) return { error: error.message };
+  const updatePayload: any = {
+    sale_date,
+    delivery_date
+  };
+  if (vin) updatePayload.vin = vin;
+  if (model) updatePayload.model = model;
+
+  const { error } = await supabase.from('vehicles').update(updatePayload).eq('id', id);
+
+  if (error) {
+    if (error.code === '23505' || error.message?.includes('vehicles_vin_key') || error.message?.includes('unique constraint')) {
+      return { error: 'VIN already exists. Please use a different VIN.' };
+    }
+    return { error: error.message };
+  }
   revalidatePath('/', 'layout');
   return { success: true };
 }
