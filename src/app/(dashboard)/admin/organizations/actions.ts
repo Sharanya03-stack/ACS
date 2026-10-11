@@ -4,6 +4,7 @@ import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { isValidPhone } from '@/utils/validation';
+import { notifyAccountCreated } from '@/lib/email/notifications';
 
 async function requireAdmin() {
   const supabase = await createServerClient();
@@ -157,6 +158,8 @@ export async function createOEM(formData: FormData) {
       }
       return { error: profileError.message || 'Failed to create OEM profile' };
     }
+
+    notifyAccountCreated({ email: contactEmail.trim(), name: name.trim(), role: 'OEM' }).catch(console.error);
 
     revalidatePath('/admin/oems');
     return { success: true };
@@ -381,6 +384,8 @@ export async function createDealer(formData: FormData) {
       return { error: profileError.message || 'Failed to create Dealership profile' };
     }
 
+    notifyAccountCreated({ email: contactEmail.trim(), name: name.trim(), role: 'DEALER' }).catch(console.error);
+
     revalidatePath('/admin/dealerships');
     revalidatePath('/oem/dealerships');
     return { success: true };
@@ -562,6 +567,8 @@ export async function createPartner(formData: FormData) {
       }
       return { error: profileError.message || 'Failed to create Partner profile' };
     }
+
+    notifyAccountCreated({ email: contactEmail.trim(), name: name.trim(), role: 'PARTNER' }).catch(console.error);
 
     revalidatePath('/admin/partners');
     return { success: true };

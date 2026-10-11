@@ -68,13 +68,38 @@ export async function createCustomer(formData: FormData) {
     return { error: 'Address is required.' };
   }
 
+  // Optional manual Customer ID (display_id) support
+  const rawCustomerId = (formData.get('customerId') || formData.get('display_id') || formData.get('customer_id')) as string;
+  let customDisplayId: string | undefined = undefined;
+
+  if (rawCustomerId && rawCustomerId.trim() !== '') {
+    const trimmedId = rawCustomerId.trim().toUpperCase();
+    if (!/^(CUS-\d{6}|ACS-ORD-\d{6}|ORD-\d{6})$/.test(trimmedId)) {
+      return { error: 'Invalid Order ID format. Expected format is ACS-ORD-XXXXXX (or CUS-XXXXXX) with 6 digits (e.g. ACS-ORD-000123).' };
+    }
+    customDisplayId = trimmedId;
+  }
+
   const { createClient: createAdminClient } = await import('@supabase/supabase-js');
   const adminClient = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { data, error } = await adminClient.from('customers').insert({
+  // If manual display_id is provided, pre-check uniqueness
+  if (customDisplayId) {
+    const { data: existingCust } = await adminClient
+      .from('customers')
+      .select('id, display_id')
+      .ilike('display_id', customDisplayId)
+      .maybeSingle();
+
+    if (existingCust) {
+      return { error: 'This Order ID / Customer ID already exists. Please enter a different ID.' };
+    }
+  }
+
+  const insertPayload: any = {
     name: formData.get('name'),
     phone: formData.get('phone'),
     email: formData.get('email') || null,
@@ -84,9 +109,24 @@ export async function createCustomer(formData: FormData) {
     pincode: formData.get('pincode'),
     dealer_id,
     custom_dealer_name
-  }).select().single();
+  };
 
-  if (error) return { error: error.message };
+  if (customDisplayId) {
+    insertPayload.display_id = customDisplayId;
+  }
+
+  const { data, error } = await adminClient
+    .from('customers')
+    .insert(insertPayload)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505' || error.message?.includes('customers_display_id_key') || error.message?.includes('display_id')) {
+      return { error: 'This Order ID / Customer ID already exists. Please enter a different ID.' };
+    }
+    return { error: error.message };
+  }
   revalidatePath('/', 'layout');
   return { success: true, id: data?.id, data };
 }

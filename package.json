@@ -15,11 +15,11 @@
     "framer-motion": "^13.1.0",
     "lucide-react": "^1.31.0",
     "next": "16.3.0",
-    "postmark": "^5.1.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hot-toast": "^2.6.0",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "resend": "^6.30.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

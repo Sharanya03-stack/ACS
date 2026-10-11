@@ -13,6 +13,8 @@ import { RefreshCw, BatteryCharging, X } from 'lucide-react';
 import { EvidenceManager } from '@/components/installations/EvidenceManager';
 import { assignPartnerAction } from '@/app/actions/assignPartner';
 import { assignTechnician } from '@/app/actions/assignTechnician';
+import { CopyTechnicianLink } from '@/components/installations/CopyTechnicianLink';
+import { toast } from 'react-hot-toast';
 
 interface Props {
   installations: any[];
@@ -100,9 +102,10 @@ export default function OemDashboardClient({
       if (updatedInst) {
         setSelectedInst(updatedInst);
       }
+      toast.success('Technician assigned successfully');
       router.refresh();
     } else {
-      alert("Failed to assign technician: " + res.error);
+      toast.error(res.error || 'Failed to assign technician');
     }
     setIsAssigningTech(false);
   };
@@ -287,7 +290,7 @@ export default function OemDashboardClient({
       </div>
 
       {/* Filter / Search Bar */}
-      <InstallationFilters 
+      <InstallationFilters
         showDealer={true}
         dealers={dealers}
       />
@@ -335,24 +338,24 @@ export default function OemDashboardClient({
                 installations.map((inst: any) => {
                   const dealerName = inst.dealers?.name || inst.custom_dealer_name || '-';
                   const dealerDisplayId = inst.dealers?.display_id;
-                  
+
                   const customerName = inst.customers?.name || '-';
                   const customerDisplayId = inst.customers?.display_id;
-                  
+
                   const partnerName = inst.partners?.name || '-';
                   const partnerDisplayId = inst.partners?.display_id;
-                  
+
                   const techName = inst.technicians?.name || '-';
-                  
-                  const categoryLabel = inst.category === 'INSTALLATION_AND_EARTHING' 
-                    ? 'Inst + Earthing' 
-                    : inst.category === 'INSTALLATION_ONLY' 
-                    ? 'Inst Only' 
+
+                  const categoryLabel = inst.category === 'INSTALLATION_AND_EARTHING'
+                    ? 'Inst + Earthing'
+                    : inst.category === 'INSTALLATION_ONLY'
+                    ? 'Inst Only'
                     : (inst.category || '-');
 
                   return (
-                    <tr 
-                      key={inst.id} 
+                    <tr
+                      key={inst.id}
                       className="acs-table-row hover:bg-gray-50/80 cursor-pointer transition-colors"
                       onClick={() => setSelectedInst(inst)}
                     >
@@ -426,7 +429,7 @@ export default function OemDashboardClient({
 
                       {/* Action */}
                       <td className="px-4 py-3.5 whitespace-nowrap text-right text-sm font-medium">
-                        <button 
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedInst(inst);
@@ -452,18 +455,18 @@ export default function OemDashboardClient({
       <AnimatePresence>
         {selectedInst && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-            <motion.div 
+            <motion.div
               variants={backdropVariants}
               initial="hidden"
               animate="visible"
               exit="hidden"
               transition={{ duration: 0.2 }}
-              className="acs-backdrop absolute" 
-              onClick={() => setSelectedInst(null)} 
-              aria-hidden="true" 
+              className="acs-backdrop absolute"
+              onClick={() => setSelectedInst(null)}
+              aria-hidden="true"
             />
-            
-            <motion.div 
+
+            <motion.div
               variants={panelVariants}
               initial="hidden"
               animate="visible"
@@ -478,8 +481,8 @@ export default function OemDashboardClient({
                   </h2>
                   <p className="text-sm text-gray-300 mt-1 font-mono">{selectedInst.display_id}</p>
                 </div>
-                <button 
-                  onClick={() => setSelectedInst(null)} 
+                <button
+                  onClick={() => setSelectedInst(null)}
                   className="text-gray-300 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
                 >
                   <span className="sr-only">Close panel</span>
@@ -559,7 +562,7 @@ export default function OemDashboardClient({
                             <p className="text-xs text-amber-600 font-medium">(Not registered)</p>
                           </>
                         ) : (
-                          <form 
+                          <form
                             onSubmit={(e) => {
                               e.preventDefault();
                               if (partnerSearchQuery.trim()) {
@@ -603,12 +606,12 @@ export default function OemDashboardClient({
                       <div>
                         <div className="flex items-center justify-between">
                           <p className="text-xs text-gray-500">Assigned Technician</p>
-                          {selectedInst.technician_id && !isEditingTech && (
+                          {(selectedInst.technician_id || selectedInst.custom_technician_name) && !isEditingTech && (
                             <button
                               type="button"
                               onClick={() => {
                                 setIsEditingTech(true);
-                                setTechSearchQuery(selectedInst.technicians?.name || '');
+                                setTechSearchQuery(selectedInst.technicians?.name || selectedInst.custom_technician_name || '');
                               }}
                               className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
                             >
@@ -616,17 +619,17 @@ export default function OemDashboardClient({
                             </button>
                           )}
                         </div>
-                        {!selectedInst.partner_id ? (
-                          <p className="text-xs text-gray-400 italic mt-1">Assign a registered Partner first</p>
-                        ) : selectedInst.technician_id && !isEditingTech ? (
+                        {!selectedInst.partner_id && !selectedInst.custom_partner_name ? (
+                          <p className="text-xs text-gray-400 italic mt-1">Assign an Installation Partner first</p>
+                        ) : (selectedInst.technicians?.name || selectedInst.custom_technician_name) && !isEditingTech ? (
                           <>
-                            <p className="text-sm font-semibold text-gray-900 mt-1">{selectedInst.technicians?.name || 'Assigned'}</p>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">{selectedInst.technicians?.name || selectedInst.custom_technician_name || 'Assigned'}</p>
                             {selectedInst.technicians?.phone && (
                               <p className="text-xs text-gray-500">{selectedInst.technicians.phone}</p>
                             )}
                           </>
                         ) : (
-                          <form 
+                          <form
                             onSubmit={(e) => {
                               e.preventDefault();
                               if (techSearchQuery.trim()) {
@@ -637,7 +640,7 @@ export default function OemDashboardClient({
                           >
                             <input
                               type="text"
-                              placeholder="Technician Name / Phone / ID..."
+                              placeholder="Enter technician name"
                               value={techSearchQuery}
                               onChange={(e) => setTechSearchQuery(e.target.value)}
                               disabled={isAssigningTech}
@@ -648,9 +651,9 @@ export default function OemDashboardClient({
                               disabled={isAssigningTech || !techSearchQuery.trim()}
                               className="px-3 py-1.5 bg-[#243B36] text-white text-xs font-semibold rounded hover:bg-[#1b2d29] disabled:opacity-50 whitespace-nowrap"
                             >
-                              {isAssigningTech ? 'Assigning...' : selectedInst.technician_id ? 'Save' : 'Assign'}
+                              {isAssigningTech ? 'Assigning...' : 'Assign'}
                             </button>
-                            {selectedInst.technician_id && (
+                            {(selectedInst.technician_id || selectedInst.custom_technician_name) && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -665,6 +668,15 @@ export default function OemDashboardClient({
                             )}
                           </form>
                         )}
+                        {selectedInst.tracking_token && (
+                          <div className="mt-3">
+                            <CopyTechnicianLink
+                              token={selectedInst.tracking_token}
+                              technicianId={selectedInst.technician_id}
+                              customTechnicianName={selectedInst.custom_technician_name}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -674,7 +686,7 @@ export default function OemDashboardClient({
                 {isLoadingDetails ? (
                   <div className="text-center py-6 text-gray-500 text-sm">Loading details & evidence...</div>
                 ) : (
-                  <EvidenceManager 
+                  <EvidenceManager
                     installationId={selectedInst.id}
                     category={selectedInst.category}
                     existingPhotos={photos}

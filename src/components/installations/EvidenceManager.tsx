@@ -5,6 +5,7 @@ import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { uploadEvidence } from '@/app/actions/uploadEvidence';
 import { Camera, Image as ImageIcon } from 'lucide-react';
+import { EvidenceGallery } from '@/components/installations/EvidenceGallery';
 
 interface EvidenceManagerProps {
   installationId: string;
@@ -118,26 +119,12 @@ export function EvidenceManager({ installationId, category, existingPhotos, onUp
         </>
       )}
 
-      {existingPhotos.length > 0 ? (
-        <div className="grid grid-cols-2 gap-4">
-          {existingPhotos.map((photo) => (
-            <div key={photo.id} className="border rounded-md overflow-hidden bg-gray-50 flex flex-col">
-              <div className="p-2 text-xs font-semibold bg-gray-100 border-b text-center capitalize">
-                {photo.category.replace(/_/g, ' ')}
-              </div>
-              <div className="relative aspect-video">
-                {photo.url ? (
-                  <Image src={photo.url} alt={photo.category} fill className="object-cover" unoptimized />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-xs text-gray-500">Image unavailable</div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-gray-500 text-center">No photos uploaded yet.</p>
-      )}
+      {/* Evidence Gallery with Grid & Lightbox */}
+      <EvidenceGallery
+        photos={existingPhotos}
+        readOnly={readOnly}
+        emptyPhotosMessage="No evidence photos uploaded yet."
+      />
 
       {showUploadMenu && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">

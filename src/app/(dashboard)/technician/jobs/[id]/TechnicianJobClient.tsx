@@ -11,6 +11,7 @@ import { uploadEvidence } from '@/app/actions/uploadEvidence';
 import { submitInstallation } from '@/app/actions/submitInstallation';
 import { createClient } from '@/utils/supabase/client';
 import { Camera, CheckCircle2, ChevronLeft, Loader2, PlayCircle, PlusCircle, Trash2, Image as ImageIcon } from 'lucide-react';
+import { PhotoLightbox } from '@/components/installations/PhotoLightbox';
 
 const DEFAULT_CHECKLIST = [
   { item_code: 'c1', item_name: 'Charger received', status: 'PENDING', is_required: true },
@@ -28,7 +29,7 @@ const DEFAULT_CHECKLIST = [
 export default function TechnicianJobClient({ job, existingChecklists, existingPhotos, events = [] }: { job: any, existingChecklists: any[], existingPhotos: any[], events?: any[] }) {
   const router = useRouter();
   const supabase = createClient();
-  
+
   const customer = job.customers;
   const vehicle = job.vehicles;
 
@@ -69,13 +70,14 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
   const [activePhotoSection, setActivePhotoSection] = useState<string | null>(null);
   const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
-  
+
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [showUploadMenu, setShowUploadMenu] = useState<string | null>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
 
   // Use existing checklists if any, otherwise default
-  const initialChecklist = existingChecklists.length > 0 ? 
+  const initialChecklist = existingChecklists.length > 0 ?
     DEFAULT_CHECKLIST.map(def => {
       const existing = existingChecklists.find(c => c.item_code === def.item_code);
       return existing ? { ...def, status: existing.status } : def;
@@ -88,19 +90,19 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
     // Generate signed URLs for existing photos mapping by photo ID
     const fetchPhotoUrls = async () => {
       const urls: Record<string, string> = {};
-      
+
       for (const photo of existingPhotos) {
         const { data } = await supabase.storage
           .from('installation-evidence')
           .createSignedUrl(photo.storage_path, 3600); // 1 hour expiry
-          
+
         if (data?.signedUrl) {
           urls[photo.id] = data.signedUrl;
         }
       }
       setPhotoUrls(urls);
     };
-    
+
     if (existingPhotos.length > 0) {
       fetchPhotoUrls();
     }
@@ -120,16 +122,16 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
 
   const handleChecklistToggle = async (itemCode: string, opt: string) => {
     if (job.status !== 'IN_PROGRESS') return;
-    
+
     const newChecklist = checklist.map(item => {
       if (item.item_code === itemCode) {
         return { ...item, status: opt };
       }
       return item;
     });
-    
+
     setChecklist(newChecklist);
-    
+
     setSavingChecklist(true);
     await saveChecklistAction(job.id, newChecklist);
     setSavingChecklist(false);
@@ -157,18 +159,18 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!activePhotoSection || !e.target.files || e.target.files.length === 0) return;
-    
+
     const files = Array.from(e.target.files);
     e.target.value = ''; // Reset input
-    
+
     setUploadingState(prev => ({ ...prev, [activePhotoSection]: true }));
-    
+
     for (const file of files) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('installationId', job.id);
       formData.append('category', activePhotoSection); // Uses the simplified backend category
-      
+
       const res = await uploadEvidence(formData);
       if (res.error) {
         toast.error(`Failed to upload ${file.name}: ${res.error}`);
@@ -176,7 +178,7 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
         toast.success(`Uploaded ${file.name}`);
       }
     }
-    
+
     setUploadingState(prev => ({ ...prev, [activePhotoSection]: false }));
     setActivePhotoSection(null);
     router.refresh(); // Refresh to fetch newly uploaded photos
@@ -184,13 +186,13 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
 
   const handleDeletePhoto = async (photoId: string) => {
     if (!confirm('Remove this photo?')) return;
-    
+
     // Deleting photo directly via Supabase since RLS allows it before submission
     const { error } = await supabase
       .from('installation_photos')
       .delete()
       .eq('id', photoId);
-      
+
     if (error) {
       toast.error('Failed to remove photo');
     } else {
@@ -200,16 +202,16 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
   };
 
   const isChecklistComplete = checklist.every(item => !item.is_required || item.status === 'YES' || item.status === 'N/A');
-  
+
   // Submit checks that at least 1 photo per required section is present
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isChecklistComplete) {
       toast.error('Please complete all checklist items before submitting.');
       return;
     }
-    
+
     for (const section of photoSections) {
       const hasPhoto = existingPhotos.some(p => p.category === section.id);
       if (!hasPhoto) {
@@ -234,19 +236,19 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-24">
       {/* Hidden File Inputs for Photo Upload */}
-        <input 
-          type="file" 
+        <input
+          type="file"
           accept="image/jpeg,image/png,image/webp"
           capture="environment"
-          className="hidden" 
+          className="hidden"
           ref={cameraInputRef}
           onChange={handleFileChange}
         />
-        <input 
-          type="file" 
+        <input
+          type="file"
           multiple
           accept="image/jpeg,image/png,image/webp"
-          className="hidden" 
+          className="hidden"
           ref={galleryInputRef}
           onChange={handleFileChange}
         />
@@ -269,7 +271,7 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
       <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Job Details{job.display_id ? ` — ${job.display_id}` : ''}</h1>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
@@ -282,7 +284,7 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
                 <p className="text-gray-900 text-sm mt-1">{customer?.address}, {customer?.city} {customer?.pincode}</p>
               </div>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vehicle</p>
@@ -347,7 +349,7 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
                         disabled={isFinished}
                         onClick={() => handleChecklistToggle(item.item_code, opt)}
                         className={`px-3 py-1 text-xs border transition-colors ${
-                          item.status === opt 
+                          item.status === opt
                             ? (opt === 'YES' || opt === 'N/A' ? 'bg-green-500 text-white border-green-500' : 'bg-red-500 text-white border-red-500')
                             : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                         } ${opt === 'YES' ? 'rounded-l-md' : opt === 'N/A' ? 'rounded-r-md' : ''}`}
@@ -371,26 +373,37 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
             {photoSections.map(section => {
               const sectionPhotos = existingPhotos.filter(p => p.category === section.id);
               const isUploading = uploadingState[section.id];
-              
+
               return (
                 <div key={section.id} className="border-t pt-6 first:border-0 first:pt-0">
                   <h3 className="text-base font-bold text-gray-800">{section.title}</h3>
                   <p className="text-sm text-gray-500 mb-4">{section.description}</p>
-                  
+
                   {/* Photo Grid */}
                   {sectionPhotos.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
                       {sectionPhotos.map(photo => {
                         const url = photoUrls[photo.id];
+                        const globalIndex = existingPhotos.findIndex(p => p.id === photo.id);
                         return (
-                          <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group bg-gray-50">
+                          <div
+                            key={photo.id}
+                            onClick={() => {
+                              if (url && globalIndex >= 0) setSelectedPhotoIndex(globalIndex);
+                            }}
+                            className={`relative aspect-square rounded-lg overflow-hidden border border-gray-200 group bg-gray-50 ${url ? 'cursor-pointer' : ''}`}
+                          >
                             {url ? (
                               <>
-                                <Image src={url} alt={section.title} fill className="object-cover" unoptimized />
+                                <Image src={url} alt={section.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" unoptimized />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
                                 {!isFinished && (
-                                  <button 
-                                    onClick={() => handleDeletePhoto(photo.id)}
-                                    className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-white"
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeletePhoto(photo.id);
+                                    }}
+                                    className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-white z-10"
                                     title="Remove photo"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -414,7 +427,7 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
                           {sectionPhotos.length} photo{sectionPhotos.length !== 1 ? 's' : ''} uploaded
                         </span>
                       )}
-                      
+
                       <button
                         onClick={() => triggerUploadMenu(section.id)}
                         disabled={isUploading}
@@ -485,6 +498,18 @@ export default function TechnicianJobClient({ job, existingChecklists, existingP
           </div>
         </div>
       )}
+      <PhotoLightbox
+        isOpen={selectedPhotoIndex !== null}
+        photos={existingPhotos.map(p => ({
+          id: p.id,
+          url: photoUrls[p.id] || '',
+          category: p.category,
+          file_name: p.file_path ? p.file_path.split('/').pop() : undefined,
+          storage_path: p.storage_path
+        }))}
+        initialIndex={selectedPhotoIndex ?? 0}
+        onClose={() => setSelectedPhotoIndex(null)}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { ReviewDrawer } from '@/components/installations/ReviewDrawer';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 import { assignPartnerAction } from '@/app/actions/assignPartner';
 import { assignTechnician } from '@/app/actions/assignTechnician';
 import { updateInstallationOrderDetailsAction } from '@/app/actions/createInstallationOrder';
@@ -34,7 +35,7 @@ import { Download } from 'lucide-react';
 export function AdminInstallationsClient({ initialInstallations, totalCount, oems, dealers, partners, technicians }: Props) {
   const router = useRouter();
   const supabase = createClient();
-  
+
   const [selectedInst, setSelectedInst] = useState<any | null>(null);
   const [reviewInstId, setReviewInstId] = useState<string | null>(null);
   const [assigningPartnerInst, setAssigningPartnerInst] = useState<any | null>(null);
@@ -55,7 +56,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
       p.display_id?.toLowerCase().includes(q)
     );
   }, [activePartnersList, partnerSearchQuery]);
-  
+
   // New state for Review Workflow
   const [checklists, setChecklists] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
@@ -66,7 +67,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
     if (selectedInst) {
       loadDetails(selectedInst.id);
     }
-    
+
     if (selectedInst || assigningPartnerInst) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -105,7 +106,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
       .eq('entity_type', 'INSTALLATION')
       .eq('entity_id', id)
       .order('created_at', { ascending: true });
-      
+
     if (eventData) {
       setEvents(eventData);
     }
@@ -122,7 +123,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
       .from('installation_photos')
       .select('*')
       .eq('installation_id', id);
-    
+
     if (photoData) {
       // Create signed URLs
       const photosWithUrls = await Promise.all(photoData.map(async (photo) => {
@@ -141,7 +142,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
       case 'CREATED': return 'Installation Request Created';
       case 'PARTNER_ASSIGNED': return 'Partner Assigned';
       case 'TECHNICIAN_ASSIGNED': return 'Technician Assigned';
-      case 'STATUS_CHANGED': 
+      case 'STATUS_CHANGED':
         const status = event.new_value?.status;
         if (status === 'IN_PROGRESS') return 'Installation Started';
         if (status === 'UNDER_VERIFICATION') return 'Submitted for Verification';
@@ -260,9 +261,10 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
       }
       setIsEditingTech(false);
       setTechSearchQuery('');
+      toast.success('Technician assigned successfully');
       router.refresh();
     } else {
-      alert("Failed to assign technician: " + (res.error || 'Unknown error'));
+      toast.error(res.error || 'Failed to assign technician');
     }
     setIsAssigningTech(false);
   };
@@ -300,7 +302,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 relative">
-      
+
       {/* Subtle Visual Header */}
       <div className="mb-8 relative rounded-2xl overflow-hidden shadow-sm border border-gray-200/50 bg-white">
         <div className="relative z-10 p-8 flex justify-between items-center">
@@ -314,7 +316,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
         </div>
       </div>
 
-      <InstallationFilters 
+      <InstallationFilters
         showOem={true}
         showDealer={true}
         showPartner={true}
@@ -323,7 +325,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
         dealers={dealers}
         partners={partners}
         technicians={technicians}
-        
+
       />
 
       <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
@@ -434,7 +436,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Installation Partner</label>
-                    <select 
+                    <select
                       value={selectedPartnerId}
                       onChange={(e) => setSelectedPartnerId(e.target.value)}
                       className="w-full rounded-md border-gray-300 border px-3 text-sm py-2 focus:ring-blue-500 focus:border-blue-500"
@@ -445,14 +447,14 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                   </div>
                 </div>
                 <div className="flex justify-end gap-3 mt-8">
-                  <button 
+                  <button
                     onClick={() => { setAssigningPartnerInst(null); setSelectedPartnerId(''); }}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none"
                     disabled={isSubmitting}
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       if (selectedPartnerId) { handleAssignPartnerFromDrawer(assigningPartnerInst.id, selectedPartnerId); }
                     }}
@@ -472,18 +474,18 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
       <AnimatePresence>
         {selectedInst && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-            <motion.div 
+            <motion.div
               variants={backdropVariants}
               initial="hidden"
               animate="visible"
               exit="hidden"
               transition={{ duration: 0.2 }}
-              className="acs-backdrop absolute" 
-              onClick={() => setSelectedInst(null)} 
-              aria-hidden="true" 
+              className="acs-backdrop absolute"
+              onClick={() => setSelectedInst(null)}
+              aria-hidden="true"
             />
-            
-            <motion.div 
+
+            <motion.div
               variants={panelVariants}
               initial="hidden"
               animate="visible"
@@ -498,8 +500,8 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                   </h2>
                   <p className="text-sm text-gray-300 mt-1">{selectedInst.display_id}</p>
                 </div>
-                <button 
-                  onClick={() => setSelectedInst(null)} 
+                <button
+                  onClick={() => setSelectedInst(null)}
                   className="text-gray-300 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
                 >
                   <span className="sr-only">Close panel</span>
@@ -507,7 +509,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50/50 space-y-6">
-                    
+
                     {/* Status Banner */}
                     <div className={`p-4 rounded-md flex justify-between items-center ${getStatusColor(selectedInst.status)}`}>
                       <span className="font-bold">Current Status: {selectedInst.status}</span>
@@ -518,7 +520,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                       <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
                         <div className="flex justify-between items-center mb-2">
                           <h3 className="font-bold text-yellow-800">Verification Required</h3>
-                          <button 
+                          <button
                             onClick={() => {
                               const id = selectedInst.id;
                               setSelectedInst(null);
@@ -531,10 +533,10 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                         </div>
                         <p className="text-sm text-yellow-700 mb-4">Please review the checklist and photos uploaded by the technician. If everything is correct, verify the installation.</p>
                         <div className="flex gap-4">
-                          <button 
-                            onClick={() => { 
+                          <button
+                            onClick={() => {
                               if(window.confirm('Are you sure you want to verify and complete this installation?')) {
-                                verifyInstallation(selectedInst.id); 
+                                verifyInstallation(selectedInst.id);
                               }
                             }}
                             className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded whitespace-nowrap"
@@ -542,21 +544,21 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                             Approve & Verify
                           </button>
                           <div className="flex-1 flex gap-2">
-                            <input 
-                              type="text" 
-                              placeholder="Reason for rejection" 
+                            <input
+                              type="text"
+                              placeholder="Reason for rejection"
                               className="flex-1 rounded-md border-gray-300 border px-3 text-sm"
                               value={rejectReason}
                               onChange={(e) => setRejectReason(e.target.value)}
                             />
-                            <button 
-                              onClick={() => { 
+                            <button
+                              onClick={() => {
                                 if(!rejectReason) {
                                   alert("Please provide a reason for rejection.");
                                   return;
                                 }
                                 if(window.confirm('Are you sure you want to reject this installation? The technician will be notified to revisit.')) {
-                                  rejectInstallation(selectedInst.id, rejectReason); 
+                                  rejectInstallation(selectedInst.id, rejectReason);
                                 }
                               }}
                               className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
@@ -585,7 +587,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                         <div className="flex justify-between items-center">
                           <h3 className="text-sm font-medium text-gray-500">Partner Organization</h3>
                           {!isEditingPartner && (
-                            <button 
+                            <button
                               onClick={() => setIsEditingPartner(true)}
                               className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline"
                             >
@@ -595,13 +597,13 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                         </div>
 
                         {isEditingPartner ? (
-                          <form 
+                          <form
                             onSubmit={(e) => {
                               e.preventDefault();
                               if (partnerSearchQuery.trim()) {
                                 handleAssignPartnerFromDrawer(selectedInst.id, partnerSearchQuery.trim());
                               }
-                            }} 
+                            }}
                             className="mt-2 space-y-2"
                           >
                             <input
@@ -649,29 +651,29 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                         <div className="mt-4">
                           <div className="flex justify-between items-center">
                             <p className="text-sm font-medium text-gray-500">Assigned Technician:</p>
-                            {!isEditingTech && selectedInst.partner_id && (
-                              <button 
+                            {!isEditingTech && (selectedInst.partner_id || selectedInst.custom_partner_name) && (
+                              <button
                                 onClick={() => setIsEditingTech(true)}
                                 className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline"
                               >
-                                {selectedInst.technicians?.name ? 'Reassign' : 'Assign'}
+                                {selectedInst.technicians?.name || selectedInst.custom_technician_name ? 'Reassign' : 'Assign'}
                               </button>
                             )}
                           </div>
 
                           {isEditingTech ? (
-                            <form 
+                            <form
                               onSubmit={(e) => {
                                 e.preventDefault();
                                 if (techSearchQuery.trim()) {
                                   handleAssignTechnician(selectedInst.id, techSearchQuery.trim());
                                 }
-                              }} 
+                              }}
                               className="mt-2 space-y-2"
                             >
                               <input
                                 type="text"
-                                placeholder="Technician Name / Phone / ID..."
+                                placeholder="Enter technician name"
                                 value={techSearchQuery}
                                 onChange={(e) => setTechSearchQuery(e.target.value)}
                                 disabled={isAssigningTech}
@@ -690,14 +692,16 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                                   disabled={isAssigningTech || !techSearchQuery.trim()}
                                   className="px-3 py-1 bg-[#243B36] text-white text-xs font-semibold rounded hover:bg-[#1b2d29] disabled:opacity-50"
                                 >
-                                  {isAssigningTech ? 'Assigning...' : 'Assign Tech'}
+                                  {isAssigningTech ? 'Assigning...' : 'Assign'}
                                 </button>
                               </div>
                             </form>
                           ) : selectedInst.technicians?.name ? (
                             <p className="text-sm text-gray-900 mt-1 font-medium">{selectedInst.technicians.name}</p>
-                          ) : selectedInst.partner_id ? (
-                            <p className="text-sm text-gray-400 italic mt-1">Unassigned (Click Reassign)</p>
+                          ) : selectedInst.custom_technician_name ? (
+                            <p className="text-sm text-gray-900 mt-1 font-medium">{selectedInst.custom_technician_name}</p>
+                          ) : (selectedInst.partner_id || selectedInst.custom_partner_name) ? (
+                            <p className="text-sm text-gray-400 italic mt-1">Unassigned (Click Assign)</p>
                           ) : (
                             <p className="text-sm text-gray-400 italic mt-1">Assign Partner first</p>
                           )}
@@ -710,7 +714,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                         <div className="flex justify-between items-center mb-2">
                           <h3 className="text-sm font-medium text-gray-500">Order Details</h3>
                           {!isEditingOrderDetails && (
-                            <button 
+                            <button
                               onClick={() => setIsEditingOrderDetails(true)}
                               className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline"
                             >
@@ -723,7 +727,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                           <form onSubmit={handleUpdateOrderDetails} className="space-y-3 bg-white p-3 border rounded-md text-xs">
                             <div>
                               <label className="block text-gray-700 font-medium mb-1">Category</label>
-                              <select 
+                              <select
                                 name="category"
                                 defaultValue={selectedInst.category || 'INSTALLATION_AND_EARTHING'}
                                 className="w-full px-2 py-1 border rounded text-xs"
@@ -740,7 +744,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
 
                             <div>
                               <label className="block text-gray-700 font-medium mb-1">Scheduled Date</label>
-                              <input 
+                              <input
                                 type="date"
                                 name="scheduled_date"
                                 defaultValue={selectedInst.scheduled_date ? selectedInst.scheduled_date.split('T')[0] : ''}
@@ -750,7 +754,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
 
                             <div>
                               <label className="block text-gray-700 font-medium mb-1">Dealer</label>
-                              <input 
+                              <input
                                 type="text"
                                 name="dealer_query"
                                 placeholder="Dealer Name or Display ID"
@@ -762,7 +766,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
 
                             <div>
                               <label className="block text-gray-700 font-medium mb-1">Remarks</label>
-                              <textarea 
+                              <textarea
                                 name="remarks"
                                 rows={2}
                                 defaultValue={selectedInst.remarks || ''}
@@ -803,7 +807,13 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                               <span className="text-xs text-gray-500 font-medium">Tracking Token: </span>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <p className="text-xs text-gray-900 font-mono break-all">{selectedInst.tracking_token || 'N/A'}</p>
-                                {selectedInst.tracking_token && <CopyTechnicianLink token={selectedInst.tracking_token} technicianId={selectedInst.technician_id} />}
+                                {selectedInst.tracking_token && (
+                                  <CopyTechnicianLink
+                                    token={selectedInst.tracking_token}
+                                    technicianId={selectedInst.technician_id}
+                                    customTechnicianName={selectedInst.custom_technician_name}
+                                  />
+                                )}
                               </div>
                             </div>
                             <div>
@@ -894,7 +904,7 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
                     {isLoadingDetails ? (
                       <div className="mt-8 border-t pt-6 text-center text-gray-500">Loading photos...</div>
                     ) : (
-                      <EvidenceManager 
+                      <EvidenceManager
                         installationId={selectedInst.id}
                         category={selectedInst.category}
                         existingPhotos={photos}
@@ -915,8 +925,8 @@ export function AdminInstallationsClient({ initialInstallations, totalCount, oem
         )}
       </AnimatePresence>
 
-      <ReviewDrawer 
-        installationId={reviewInstId} 
+      <ReviewDrawer
+        installationId={reviewInstId}
         onClose={() => setReviewInstId(null)}
         onReviewComplete={() => {
           setReviewInstId(null);

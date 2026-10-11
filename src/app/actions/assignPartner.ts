@@ -122,6 +122,7 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
 
     if (isPartnerChanging) {
       updatePayload.technician_id = null;
+      updatePayload.custom_technician_name = null;
     }
   } else {
     // Unregistered custom partner name
@@ -132,16 +133,28 @@ export async function assignPartnerAction(installationId: string, partnerInput: 
       status: newStatus,
       partner_id: null,
       custom_partner_name: trimmed,
-      technician_id: null
+      technician_id: null,
+      custom_technician_name: null
     };
   }
 
   // 4. Assign the partner / custom partner name
-  const { data: updatedData, error: updateError } = await adminClient
+  let { data: updatedData, error: updateError } = await adminClient
     .from('installations')
     .update(updatePayload)
     .eq('id', installationId)
     .select('id');
+
+  if (updateError && updateError.message?.includes('custom_technician_name')) {
+    delete updatePayload.custom_technician_name;
+    const fallbackRes = await adminClient
+      .from('installations')
+      .update(updatePayload)
+      .eq('id', installationId)
+      .select('id');
+    updatedData = fallbackRes.data;
+    updateError = fallbackRes.error;
+  }
 
   if (updateError) {
     console.error(`[Assignment Error] Installation ${installationId}:`, updateError);

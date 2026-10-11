@@ -14,7 +14,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [chargers, setChargers] = useState<any[]>([]);
   const [oems, setOems] = useState<any[]>([]);
-  
+
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [selectedChargerId, setSelectedChargerId] = useState('');
@@ -25,7 +25,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
   const [submitting, setSubmitting] = useState(false);
   const [userRole, setUserRole] = useState('');
   const [userOrgId, setUserOrgId] = useState('');
-  
+
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [creatingCustomerLoading, setCreatingCustomerLoading] = useState(false);
 
@@ -45,10 +45,10 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
     setLoading(true);
     setCustomerSearchInput('');
     const supabase = createClient();
-    
+
     // Get user role
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     if (user) {
       const { data: profile } = await supabase.from('profiles').select('role, org_id').eq('id', user.id).single();
       if (profile) {
@@ -81,8 +81,8 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
   const handleSelectCustomerByInput = (query: string) => {
     if (!query.trim()) return;
     const q = query.trim().toLowerCase();
-    const matched = customers.filter(c => 
-      c.name?.toLowerCase().includes(q) || 
+    const matched = customers.filter(c =>
+      c.name?.toLowerCase().includes(q) ||
       c.display_id?.toLowerCase() === q ||
       c.phone?.includes(q)
     );
@@ -130,7 +130,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
       setIsCreatingCharger(false);
     }
   }, [selectedVehicleId]);
-  
+
   // Auto-select charger if there is only one available for the selected vehicle
   useEffect(() => {
     if (selectedVehicleId && availableChargers.length === 1 && !selectedChargerId) {
@@ -147,7 +147,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
     formData.set('charger_id', selectedChargerId); // Ensure selected charger is passed
     const res = await createInstallationOrder(formData);
     setSubmitting(false);
-    
+
     if (res.success) {
       toast.success('Order created successfully');
       router.refresh();
@@ -159,17 +159,27 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
 
   async function handleCreateCustomer(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setCreatingCustomerLoading(true);
     const formData = new FormData(e.currentTarget);
-    
+    const rawCustomerId = (formData.get('customerId') as string)?.trim().toUpperCase();
+
+    if (rawCustomerId && !/^(CUS-\d{6}|ACS-ORD-\d{6}|ORD-\d{6})$/.test(rawCustomerId)) {
+      toast.error('Order ID must follow format e.g. ACS-ORD-000123 (or CUS-000123)');
+      return;
+    }
+
+    if (rawCustomerId) {
+      formData.set('customerId', rawCustomerId);
+    }
+
+    setCreatingCustomerLoading(true);
     const res = await createCustomer(formData);
-    
+
     if (res.error) {
       toast.error(res.error);
       setCreatingCustomerLoading(false);
     } else {
       toast.success('Customer created successfully');
-      
+
       if (res.data) {
         setCustomers(prev => [...prev, res.data]);
         setSelectedCustomerId(res.data.id);
@@ -184,7 +194,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
     setCreatingVehicleLoading(true);
     const formData = new FormData(e.currentTarget);
     formData.set('customerId', selectedCustomerId);
-    
+
     // Automatically inject the correct dealer ID or custom dealer name from the selected customer
     const customer = customers.find(c => c.id === selectedCustomerId);
     if (customer) {
@@ -200,13 +210,13 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
     }
 
     const res = await createVehicle(formData);
-    
+
     if (res.error) {
       toast.error(res.error);
       setCreatingVehicleLoading(false);
     } else {
       toast.success('Vehicle created successfully');
-      
+
       if (res.data) {
         setVehicles(prev => [...prev, res.data]);
         setSelectedVehicleId(res.data.id);
@@ -230,15 +240,15 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
     setCreatingChargerLoading(true);
     formData.set('customerId', selectedCustomerId);
     formData.set('vehicleId', selectedVehicleId);
-    
+
     const res = await createCharger(formData);
-    
+
     if (res.error) {
       toast.error(res.error);
       setCreatingChargerLoading(false);
     } else {
       toast.success('Charger created successfully');
-      
+
       if (res.data) {
         // Mock the installations array since it's newly created and has none
         const newCharger = { ...res.data, installations: [] };
@@ -267,15 +277,26 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
             </div>
           ) : (
             <div className="space-y-6">
-              
+
               <div className="space-y-6">
                 {/* 1. Customer Section */}
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                   <h3 className="text-sm font-bold text-gray-800 mb-3 border-b pb-2">1. Customer</h3>
-                  
+
                   {isCreatingCustomer ? (
                     <form onSubmit={handleCreateCustomer} className="space-y-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Order ID</label>
+                          <input
+                            type="text"
+                            name="customerId"
+                            className="w-full border rounded-md p-2 text-sm bg-white uppercase font-mono"
+                            placeholder="e.g. ACS-ORD-000123"
+                            title="Enter Order ID (e.g. ACS-ORD-000123 or CUS-000123)"
+                          />
+                          <p className="text-[11px] text-gray-400 mt-0.5">e.g. ACS-ORD-000123 (or leave blank to auto-generate)</p>
+                        </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
                           <input type="text" name="name" required className="w-full border rounded-md p-2 text-sm bg-white" placeholder="Customer Name" />
@@ -313,7 +334,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex justify-end gap-2 pt-2">
                         <button type="button" onClick={() => setIsCreatingCustomer(false)} className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border hover:bg-gray-100 rounded">Cancel</button>
                         <button type="submit" disabled={creatingCustomerLoading} className="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-black rounded flex items-center gap-2">
@@ -363,7 +384,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                 {/* 2. Vehicle Section */}
                 <div className={`p-4 rounded-lg border ${!selectedCustomerId ? 'bg-gray-50/50 border-gray-100 opacity-60 pointer-events-none' : 'bg-gray-50 border-gray-200'}`}>
                   <h3 className="text-sm font-bold text-gray-800 mb-3 border-b pb-2">2. Vehicle</h3>
-                  
+
                   {!selectedCustomerId ? (
                     <p className="text-sm text-gray-500 italic">Select a customer first</p>
                   ) : isCreatingVehicle ? (
@@ -396,7 +417,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                         <label className="block text-xs font-medium text-gray-700 mb-1">Vehicle Model</label>
                         <input type="text" name="model" required className="w-full border rounded-md p-2 text-sm bg-white" placeholder="e.g. Nexon EV" />
                       </div>
-                      
+
                       <div className="flex justify-end gap-2 pt-2">
                         <button type="button" onClick={() => setIsCreatingVehicle(false)} className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border hover:bg-gray-100 rounded">Cancel</button>
                         <button type="submit" disabled={creatingVehicleLoading} className="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-black rounded flex items-center gap-2">
@@ -407,7 +428,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                     </form>
                   ) : availableVehicles.length > 0 ? (
                     <div>
-                      <select 
+                      <select
                         value={selectedVehicleId}
                         onChange={(e) => setSelectedVehicleId(e.target.value)}
                         className="w-full border rounded-md p-2 text-sm focus:ring-gray-900 focus:border-gray-900 bg-white"
@@ -436,7 +457,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                 {/* 3. Charger Section */}
                 <div className={`p-4 rounded-lg border ${!selectedVehicleId ? 'bg-gray-50/50 border-gray-100 opacity-60 pointer-events-none' : 'bg-gray-50 border-gray-200'}`}>
                   <h3 className="text-sm font-bold text-gray-800 mb-3 border-b pb-2">3. Charger</h3>
-                  
+
                   {!selectedVehicleId ? (
                     <p className="text-sm text-gray-500 italic">Select a vehicle first</p>
                   ) : isCreatingCharger ? (
@@ -451,15 +472,15 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                       </div>
                                               <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Power Rating (kW) *</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            min="0.1" 
-                            name="power_rating" 
-                            required 
-                            defaultValue="3.3" 
-                            placeholder="e.g. 3.3, 7.4, 11, 22" 
-                            className="w-full border rounded-md p-2 text-sm bg-white focus:ring-gray-900 focus:border-gray-900" 
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0.1"
+                            name="power_rating"
+                            required
+                            defaultValue="3.3"
+                            placeholder="e.g. 3.3, 7.4, 11, 22"
+                            className="w-full border rounded-md p-2 text-sm bg-white focus:ring-gray-900 focus:border-gray-900"
                           />
                         </div>
                         <div>
@@ -476,14 +497,14 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                     </form>
                   ) : availableChargers.length > 0 ? (
                     <div>
-                      <select 
+                      <select
                         value={selectedChargerId}
                         onChange={(e) => setSelectedChargerId(e.target.value)}
                         className="w-full border rounded-md p-2 text-sm focus:ring-gray-900 focus:border-gray-900 bg-white"
                       >
                         <option value="">-- Select Charger --</option>
                         {availableChargers.map(c => {
-                          const ratingStr = c.power_rating 
+                          const ratingStr = c.power_rating
                             ? (String(c.power_rating).toLowerCase().includes('kw') ? c.power_rating : `${c.power_rating} kW`)
                             : '3.3 kW';
                           return (
@@ -513,7 +534,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
               {/* 4. Installation Details Section */}
               <div className={`p-4 rounded-lg border ${!selectedChargerId ? 'bg-gray-50/50 border-gray-100 opacity-60 pointer-events-none' : 'bg-gray-50 border-gray-200'}`}>
                 <h3 className="text-sm font-bold text-gray-800 mb-3 border-b pb-2">4. Installation Details</h3>
-                
+
                 {!selectedChargerId ? (
                   <p className="text-sm text-gray-500 italic">Select a charger first</p>
                 ) : (
@@ -567,10 +588,10 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
               {/* Action Buttons */}
               <div className="pt-4 flex justify-end gap-2 border-t mt-6 bg-white sticky bottom-0">
                 <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md">Cancel</button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   form="orderForm"
-                  disabled={submitting || !selectedChargerId || isCreatingCharger || isCreatingVehicle || isCreatingCustomer} 
+                  disabled={submitting || !selectedChargerId || isCreatingCharger || isCreatingVehicle || isCreatingCustomer}
                   className="px-6 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-black rounded-md disabled:opacity-50 flex items-center gap-2"
                 >
                   {submitting && <Loader2 className="animate-spin h-4 w-4" />}

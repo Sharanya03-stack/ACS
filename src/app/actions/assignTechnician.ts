@@ -28,7 +28,7 @@ export async function assignTechnician(installationId: string, technicianInput: 
   // 3. Get installation details (to verify partner/oem ownership)
   const { data: installation } = await supabase
     .from('installations')
-    .select('partner_id, oem_id, status')
+    .select('id, partner_id, custom_partner_name, oem_id, status, tracking_token, remarks')
     .eq('id', installationId)
     .single();
 
@@ -49,12 +49,12 @@ export async function assignTechnician(installationId: string, technicianInput: 
     }
   }
 
-  if (!installation.partner_id) {
-    return { error: 'Cannot assign technician: Please assign a registered Partner Organization first.' };
+  if (!installation.partner_id && !installation.custom_partner_name) {
+    return { error: 'Cannot assign technician: Please assign an Installation Partner first.' };
   }
 
   if (!technicianInput || technicianInput.trim() === '') {
-    return { error: 'Technician name, phone, or Display ID is required.' };
+    return { error: 'Technician name is required.' };
   }
 
   const trimmed = technicianInput.trim();
@@ -68,97 +68,107 @@ export async function assignTechnician(installationId: string, technicianInput: 
 
   let targetTech: any = null;
 
-  if (isUuid) {
-    const { data: tp } = await adminClient
-      .from('profiles')
-      .select('id, role, org_id, status, name')
-      .eq('id', trimmed)
-      .maybeSingle();
+  // Check if matches an existing registered technician under the partner
+  if (installation.partner_id) {
+    if (isUuid) {
+      const { data: tp } = await adminClient
+        .from('profiles')
+        .select('id, role, org_id, status, name')
+        .eq('id', trimmed)
+        .maybeSingle();
 
-    if (tp && tp.role === 'TECHNICIAN' && tp.status === 'ACTIVE' && tp.org_id === installation.partner_id) {
-      targetTech = tp;
-    }
-  }
-
-  if (!targetTech) {
-    // Search active technicians belonging to installation.partner_id by phone, display_id, or name
-    const { data: matches, error: matchErr } = await adminClient
-      .from('profiles')
-      .select('id, role, org_id, status, name, phone, display_id')
-      .eq('role', 'TECHNICIAN')
-      .eq('status', 'ACTIVE')
-      .eq('org_id', installation.partner_id)
-      .or(`display_id.eq.${trimmed},phone.eq.${trimmed},name.ilike.${trimmed}`);
-
-    if (matchErr) {
-      console.error('Error resolving technician:', matchErr);
-      return { error: 'Database error resolving technician.' };
+      if (tp && tp.role === 'TECHNICIAN' && tp.status === 'ACTIVE' && tp.org_id === installation.partner_id) {
+        targetTech = tp;
+      }
     }
 
-    if (!matches || matches.length === 0) {
-      // Partial name fallback
-      const { data: partialMatches } = await adminClient
+    if (!targetTech) {
+      // Exact match on display_id, phone, or name
+      const { data: exactMatches } = await adminClient
         .from('profiles')
         .select('id, role, org_id, status, name, phone, display_id')
         .eq('role', 'TECHNICIAN')
         .eq('status', 'ACTIVE')
         .eq('org_id', installation.partner_id)
-        .ilike('name', `%${trimmed}%`);
+        .or(`display_id.eq.${trimmed},phone.eq.${trimmed},name.ilike.${trimmed}`);
 
-      if (!partialMatches || partialMatches.length === 0) {
-        return { error: `No active technician found matching "${trimmed}" for this Partner.` };
+      if (exactMatches && exactMatches.length === 1) {
+        targetTech = exactMatches[0];
       }
-      if (partialMatches.length > 1) {
-        return { error: `Multiple technicians match "${trimmed}". Please enter the exact phone number or Technician ID.` };
-      }
-      targetTech = partialMatches[0];
-    } else if (matches.length > 1) {
-      return { error: `Multiple technicians match "${trimmed}". Please enter the exact phone number or Technician ID.` };
-    } else {
-      targetTech = matches[0];
     }
   }
 
-  const resolvedTechnicianId = targetTech.id;
+  const isRegistered = Boolean(targetTech);
+  const resolvedTechnicianId = isRegistered ? targetTech.id : null;
+  const customTechnicianName = isRegistered ? null : trimmed;
 
-  // 6. Update installation with new technician_id
-  const { data: updatedData, error: updateError } = await adminClient
+  const updatePayload: Record<string, any> = {
+    technician_id: resolvedTechnicianId,
+    custom_technician_name: customTechnicianName,
+    updated_at: new Date().toISOString()
+  };
+
+  // Ensure tracking token exists
+  if (!installation.tracking_token) {
+    updatePayload.tracking_token = crypto.randomUUID();
+  }
+
+  // Advance status if NEW or PARTNER_ASSIGNED
+  if (installation.status === 'NEW' || installation.status === 'PARTNER_ASSIGNED') {
+    updatePayload.status = 'TECHNICIAN_ASSIGNED';
+  }
+
+  // Update installation record
+  let { data: updatedData, error: updateError } = await adminClient
     .from('installations')
-    .update({ technician_id: resolvedTechnicianId })
+    .update(updatePayload)
     .eq('id', installationId)
-    .select('id');
+    .select('id, tracking_token');
+
+  // Resilient fallback if custom_technician_name column not yet applied via migration
+  if (updateError && updateError.message?.includes('custom_technician_name')) {
+    console.warn('[assignTechnician] custom_technician_name column not found in database; using remarks fallback.');
+    delete updatePayload.custom_technician_name;
+    const existingRemarks = installation.remarks ? installation.remarks.replace(/\[Tech:\s*[^\]]+\]\s*/g, '').trim() : '';
+    const newRemarks = customTechnicianName ? `[Tech: ${customTechnicianName}] ${existingRemarks}`.trim() : existingRemarks;
+    updatePayload.remarks = newRemarks;
+
+    const fallbackRes = await adminClient
+      .from('installations')
+      .update(updatePayload)
+      .eq('id', installationId)
+      .select('id, tracking_token');
+
+    updatedData = fallbackRes.data;
+    updateError = fallbackRes.error;
+  }
 
   if (updateError || !updatedData || updatedData.length === 0) {
     console.error("Error updating technician:", updateError);
-    return { error: 'Failed to assign technician' };
+    return { error: 'Failed to assign technician: ' + (updateError?.message || 'Database error') };
   }
 
-  // Send notifications non-blockingly
-  notifyTechnicianAssigned(installationId, resolvedTechnicianId).catch(console.error);
-  notifyTechnicianAssignedWhatsApp(installationId, resolvedTechnicianId).catch(console.error);
+  // Send notifications if assigned to registered technician
+  if (resolvedTechnicianId) {
+    notifyTechnicianAssigned(installationId, resolvedTechnicianId).catch(console.error);
+    notifyTechnicianAssignedWhatsApp(installationId, resolvedTechnicianId).catch(console.error);
+  }
 
-  // 7. Create Audit Log
-  const { error: logError } = await supabase
+  // Create Audit Log
+  await supabase
     .from('audit_logs')
     .insert({
       entity_type: 'INSTALLATION',
       entity_id: installationId,
       action: 'TECHNICIAN_ASSIGNED',
       user_id: user.id,
-      new_value: { technician_id: resolvedTechnicianId }
+      new_value: {
+        technician_id: resolvedTechnicianId,
+        custom_technician_name: customTechnicianName
+      }
     });
 
-  if (logError) {
-    console.error("Error writing audit log:", logError);
-  }
-
-  // 8. Update installation status if it was just PARTNER_ASSIGNED or NEW
   if (installation.status === 'NEW' || installation.status === 'PARTNER_ASSIGNED') {
-    await adminClient
-      .from('installations')
-      .update({ status: 'TECHNICIAN_ASSIGNED' })
-      .eq('id', installationId);
-
     await supabase
       .from('audit_logs')
       .insert({
@@ -172,5 +182,9 @@ export async function assignTechnician(installationId: string, technicianInput: 
   }
 
   revalidatePath('/', 'layout');
-  return { success: true };
+  return {
+    success: true,
+    technicianName: isRegistered ? targetTech.name : trimmed,
+    isManual: !isRegistered
+  };
 }

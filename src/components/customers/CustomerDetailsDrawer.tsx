@@ -383,7 +383,7 @@ export function CustomerDetailsDrawer({ customerId, onClose }: { customerId: str
                                     </div>
                                     
                                     <div className="mt-4 flex gap-3">
-                                      {inst.tracking_token && <CopyTechnicianLink token={inst.tracking_token} technicianId={inst.technician_id} />}
+                                      {inst.tracking_token && <CopyTechnicianLink token={inst.tracking_token} technicianId={inst.technician_id} customTechnicianName={inst.custom_technician_name} />}
                                     </div>
                                     
                                     {inst.photos && inst.photos.length > 0 && (

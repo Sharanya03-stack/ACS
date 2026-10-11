@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { Camera, CheckCircle2, Loader2, PlayCircle, PlusCircle, Trash2, Image as ImageIcon, MapPin, Phone, User, Settings, Clock, Truck, ShieldCheck, FileText, Upload } from 'lucide-react';
 import { externalStartJob, externalSaveChecklist, externalUploadPhoto, externalDeletePhoto, externalSubmitInstallation, externalGetSignedUrls, externalUploadDocument } from '@/app/actions/externalTechnician';
+import { EvidenceGallery } from '@/components/installations/EvidenceGallery';
 
 const formatDateTime = (dateString: string | null | undefined) => {
   if (!dateString) return 'N/A';
@@ -49,16 +50,16 @@ const DEFAULT_CHECKLIST = [
   { item_code: 'c9', item_name: 'Customer onboarding completed', status: 'PENDING', is_required: true }
 ];
 
-export default function ExternalTechnicianJobClient({ 
+export default function ExternalTechnicianJobClient({
   token,
-  job, 
-  existingChecklists, 
-  existingPhotos 
-}: { 
+  job,
+  existingChecklists,
+  existingPhotos
+}: {
   token: string,
-  job: any, 
-  existingChecklists: any[], 
-  existingPhotos: any[] 
+  job: any,
+  existingChecklists: any[],
+  existingPhotos: any[]
 }) {
   const router = useRouter();
 
@@ -95,9 +96,14 @@ export default function ExternalTechnicianJobClient({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [activePhotoSection, setActivePhotoSection] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<any[]>(existingPhotos || []);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setPhotos(existingPhotos || []);
+  }, [existingPhotos]);
 
   const documentInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
@@ -105,19 +111,29 @@ export default function ExternalTechnicianJobClient({
   const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setIsUploadingDoc(true);
     const formData = new FormData();
     formData.append('file', file);
     formData.append('trackingToken', token);
-    
+
     const res = await externalUploadDocument(formData);
     if (res?.error) {
       toast.error(res.error);
     } else {
       toast.success('Document uploaded');
+      if (res?.document) {
+        setPhotos(prev => [res.document, ...prev.filter(p => p.id !== res.document.id)]);
+        if (res.document.url) {
+          setPhotoUrls(prev => ({
+            ...prev,
+            [res.document.id]: res.document.url,
+            [res.document.storage_path]: res.document.url
+          }));
+        }
+      }
     }
-    
+
     if (documentInputRef.current) {
       documentInputRef.current.value = '';
     }
@@ -139,22 +155,23 @@ export default function ExternalTechnicianJobClient({
 
   useEffect(() => {
     const fetchUrls = async () => {
-      const paths = existingPhotos.map(p => p.storage_path);
+      const paths = photos.map(p => p.storage_path).filter(Boolean);
       if (paths.length > 0) {
         const res = await externalGetSignedUrls(token, paths);
         if (res.success && res.urls) {
           const newUrls: Record<string, string> = {};
-          existingPhotos.forEach(p => {
+          photos.forEach(p => {
             if (res.urls![p.storage_path]) {
               newUrls[p.id] = res.urls![p.storage_path];
+              newUrls[p.storage_path] = res.urls![p.storage_path];
             }
           });
-          setPhotoUrls(newUrls);
+          setPhotoUrls(prev => ({ ...prev, ...newUrls }));
         }
       }
     };
     fetchUrls();
-  }, [existingPhotos, token]);
+  }, [photos, token]);
 
   const handleStart = async () => {
     setStarting(true);
@@ -173,7 +190,7 @@ export default function ExternalTechnicianJobClient({
       return item;
     });
     setChecklist(newChecklist);
-    
+
     setSavingChecklist(true);
     await externalSaveChecklist(token, newChecklist);
     setSavingChecklist(false);
@@ -249,7 +266,7 @@ export default function ExternalTechnicianJobClient({
     const targetInput = e.target;
 
     setUploadingState(prev => ({ ...prev, [activePhotoSection]: true }));
-    
+
     try {
       let fileToUpload: File;
       try {
@@ -270,6 +287,16 @@ export default function ExternalTechnicianJobClient({
       const res = await externalUploadPhoto(formData);
       if (res.success) {
         toast.success('Photo uploaded');
+        if (res.photo) {
+          setPhotos(prev => [res.photo, ...prev.filter(p => p.id !== res.photo.id)]);
+          if (res.photo.url) {
+            setPhotoUrls(prev => ({
+              ...prev,
+              [res.photo.id]: res.photo.url,
+              [res.photo.storage_path]: res.photo.url
+            }));
+          }
+        }
       } else {
         toast.error(res.error || 'Photo upload failed');
       }
@@ -277,7 +304,7 @@ export default function ExternalTechnicianJobClient({
       console.error('Upload error:', err);
       toast.error('Photo upload failed. Please try again.');
     }
-    
+
     setUploadingState(prev => ({ ...prev, [activePhotoSection]: false }));
     setActivePhotoSection(null);
     if (targetInput) targetInput.value = '';
@@ -285,14 +312,13 @@ export default function ExternalTechnicianJobClient({
   };
 
   const handleDeletePhoto = async (photoId: string) => {
-    if (!confirm('Remove this photo?')) return;
-    
     const res = await externalDeletePhoto(token, photoId);
     if (res.success) {
-      toast.success('Photo removed');
+      toast.success('Item removed');
+      setPhotos(prev => prev.filter(p => p.id !== photoId));
       router.refresh();
     } else {
-      toast.error(res.error || 'Failed to remove photo');
+      toast.error(res.error || 'Failed to remove item');
     }
   };
 
@@ -305,7 +331,7 @@ export default function ExternalTechnicianJobClient({
     }
 
     for (const section of photoSections) {
-      const hasPhoto = existingPhotos.some(p => p.category === section.id);
+      const hasPhoto = photos.some(p => p.category === section.id && p.file_type !== 'application/pdf');
       if (!hasPhoto) {
         toast.error(`Please upload at least one photo for ${section.title}`);
         return;
@@ -313,7 +339,7 @@ export default function ExternalTechnicianJobClient({
     }
 
     if (!confirm('Are you sure you want to submit this installation?')) return;
-    
+
     setSubmitting(true);
     const res = await externalSubmitInstallation(token);
     if (res.success) {
@@ -349,7 +375,7 @@ export default function ExternalTechnicianJobClient({
       </div>
 
       <div className="p-4 max-w-3xl mx-auto space-y-6 mt-2">
-        
+
         {/* VENDOR SECTION */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
@@ -542,67 +568,91 @@ export default function ExternalTechnicianJobClient({
               </div>
             </div>
 
-            {/* Photos */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-              <h2 className="text-lg font-bold text-gray-900">Evidence Photos</h2>
-              <p className="text-sm text-gray-500 mt-1 mb-6">Capture and upload photos for each section below.</p>
+            {/* Photos & Evidence */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Evidence Uploads</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">Capture and upload photos & documents for verification.</p>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => documentInputRef.current?.click()}
+                    disabled={isUploadingDoc}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-300 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                  >
+                    {isUploadingDoc ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4 text-red-600" />}
+                    Upload Document (PDF)
+                  </button>
+                </div>
+              </div>
 
-              <div className="space-y-6">
+              {/* Upload Action Cards for each category */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {photoSections.map(section => {
-                  const sectionPhotos = existingPhotos.filter(p => p.category === section.id);
+                  const sectionPhotos = photos.filter(p => p.category === section.id && p.file_type !== 'application/pdf');
                   const isUploading = uploadingState[section.id];
 
                   return (
-                    <div key={section.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <div className="mb-4">
-                        <h3 className="font-bold text-gray-900 text-sm uppercase">{section.title}</h3>
+                    <div key={section.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50/70 flex flex-col justify-between">
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="font-bold text-gray-900 text-sm uppercase">{section.title}</h3>
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                            sectionPhotos.length > 0
+                              ? 'bg-green-100 text-green-800 border border-green-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}>
+                            {sectionPhotos.length} {sectionPhotos.length === 1 ? 'photo' : 'photos'}
+                          </span>
+                        </div>
                         <p className="text-xs text-gray-500 mt-1">{section.description}</p>
                       </div>
 
-                      {sectionPhotos.length > 0 && (
-                        <div className="grid grid-cols-3 gap-2 mb-4">
-                          {sectionPhotos.map(photo => {
-                            const url = photoUrls[photo.id];
-                            return (
-                              <div key={photo.id} className="relative aspect-square rounded overflow-hidden border border-gray-300 bg-white">
-                                {url ? (
-                                  <img src={url} alt="Evidence" className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                                  </div>
-                                )}
-                                <button
-                                  onClick={() => handleDeletePhoto(photo.id)}
-                                  className="absolute top-1 right-1 bg-red-600 text-white p-1.5 rounded shadow opacity-90 hover:opacity-100"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 pt-2">
                         <button
+                          type="button"
                           onClick={() => { setActivePhotoSection(section.id); cameraInputRef.current?.click(); }}
                           disabled={isUploading}
-                          className="flex-1 bg-white border border-gray-300 text-gray-700 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          className="flex-1 bg-white border border-gray-300 text-gray-700 py-2.5 rounded shadow-sm text-xs font-bold flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50"
                         >
-                          {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Camera className="w-4 h-4 mr-2" /> CAMERA</>}
+                          {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Camera className="w-4 h-4 mr-1.5" /> CAMERA</>}
                         </button>
                         <button
+                          type="button"
                           onClick={() => { setActivePhotoSection(section.id); fileInputRef.current?.click(); }}
                           disabled={isUploading}
-                          className="flex-1 bg-white border border-gray-300 text-gray-700 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          className="flex-1 bg-white border border-gray-300 text-gray-700 py-2.5 rounded shadow-sm text-xs font-bold flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50"
                         >
-                          {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><ImageIcon className="w-4 h-4 mr-2" /> GALLERY</>}
+                          {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><ImageIcon className="w-4 h-4 mr-1.5" /> GALLERY</>}
                         </button>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Responsive Gallery & Full-size Lightbox */}
+              <div className="border-t border-gray-100 pt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                    Uploaded Evidence Gallery
+                  </h3>
+                  <span className="text-xs text-gray-500">
+                    Click any photo to inspect full size
+                  </span>
+                </div>
+
+                <EvidenceGallery
+                  photos={photos.map(p => ({
+                    ...p,
+                    url: p.url || photoUrls[p.storage_path] || photoUrls[p.id] || ''
+                  }))}
+                  onDeletePhoto={handleDeletePhoto}
+                  onDeleteDocument={handleDeletePhoto}
+                  emptyPhotosMessage="No photos uploaded yet. Use the Camera or Gallery buttons above."
+                />
               </div>
             </div>
 

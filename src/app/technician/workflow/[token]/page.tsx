@@ -32,7 +32,7 @@ export default async function ExternalTechnicianJobPage(props: { params: Promise
     );
   }
 
-  if (!job.technician_id) {
+  if (!job.technician_id && !job.custom_technician_name && !job.technician?.name) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-xl shadow-sm text-center max-w-md w-full">

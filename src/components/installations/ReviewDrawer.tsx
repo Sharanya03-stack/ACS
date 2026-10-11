@@ -11,6 +11,7 @@ import { InstallationNotes } from './InstallationNotes';
 import { downloadCSV } from '@/utils/csv';
 import { Download } from 'lucide-react';
 import { EvidenceManager } from '@/components/installations/EvidenceManager';
+import { CopyTechnicianLink } from './CopyTechnicianLink';
 
 interface ReviewDrawerProps {
   installationId: string | null;
@@ -280,13 +281,15 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
                     <p>Category: {details.category}</p>
                     <p>Partner: {details.partner?.name || (details.custom_partner_name ? `${details.custom_partner_name} (Not registered)` : 'Unassigned')}</p>
                     <div className="mt-2">
-                      <p className="text-gray-500 font-medium text-sm">Technician:</p>
-                      <p className="font-semibold text-gray-800">{details.technician?.name || 'Unassigned'}</p>
-                      {(userRole === 'ACS_ADMIN' || userRole === 'PARTNER') && (
+                      <p className="text-gray-500 font-medium text-sm">Assigned Technician:</p>
+                      <p className="font-semibold text-gray-800">
+                        {details.technician?.name || details.custom_technician_name || 'Unassigned'}
+                      </p>
+                      {(userRole === 'ACS_ADMIN' || userRole === 'PARTNER' || userRole === 'OEM') && (
                         <div className="mt-2 flex gap-2">
                           <input
                             type="text"
-                            placeholder="Technician Name / Phone / ID"
+                            placeholder="Enter technician name"
                             value={techInput}
                             onChange={(e) => setTechInput(e.target.value)}
                             disabled={isAssigning}
@@ -300,6 +303,13 @@ export function ReviewDrawer({ installationId, onClose, onReviewComplete }: Revi
                             {isAssigning ? 'Assigning...' : 'Assign'}
                           </button>
                         </div>
+                      )}
+                      {details.tracking_token && (
+                        <CopyTechnicianLink
+                          token={details.tracking_token}
+                          technicianId={details.technician_id}
+                          customTechnicianName={details.custom_technician_name}
+                        />
                       )}
                     </div>
                   </div>

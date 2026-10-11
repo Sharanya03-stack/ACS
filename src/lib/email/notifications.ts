@@ -1,7 +1,15 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { sendEmail } from './postmark';
+import { sendTransactionalEmail } from './send';
+import { getAppBaseUrl } from './client';
+import {
+  renderWelcomeAccountEmail,
+  renderPartnerAssignmentEmail,
+  renderTechnicianAssignmentEmail,
+  renderInstallationSubmittedEmail,
+  renderRevisitRequestedEmail,
+  renderInstallationVerifiedEmail
+} from './templates';
 
-// Use admin client to fetch user emails from auth.users (which normal users cannot read)
 function getAdminClient() {
   return createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,123 +17,268 @@ function getAdminClient() {
   );
 }
 
-async function getUserEmail(userId: string): Promise<string | null> {
+// ---------------------------------------------------------------------------
+// Recipient Email Resolvers
+// ---------------------------------------------------------------------------
+
+export async function getUserEmail(userId: string): Promise<string | null> {
+  if (!userId) return null;
   const adminClient = getAdminClient();
+
+  // 1. Try profiles table first
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('email')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (profile?.email && profile.email.trim().length > 0) {
+    return profile.email.trim();
+  }
+
+  // 2. Fall back to auth.users
   const { data: { user }, error } = await adminClient.auth.admin.getUserById(userId);
-  if (error || !user) {
-    console.error(`[Email Resolver] Failed to get email for user ${userId}`);
+  if (error || !user?.email) {
+    console.warn(`[Email Resolver] Could not resolve email address for user ID ${userId}`);
     return null;
   }
-  return user.email || null;
+  return user.email.trim();
 }
 
-async function getOrgContactEmail(orgId: string): Promise<string | null> {
+export async function getOrgContactEmail(orgId: string): Promise<string | null> {
+  if (!orgId) return null;
   const adminClient = getAdminClient();
   const { data: org, error } = await adminClient
     .from('organizations')
     .select('contact_email')
     .eq('id', orgId)
-    .single();
-    
-  if (error || !org) return null;
-  return org.contact_email || null;
+    .maybeSingle();
+
+  if (error || !org?.contact_email) {
+    console.warn(`[Email Resolver] Could not resolve contact email for organization ID ${orgId}`);
+    return null;
+  }
+  return org.contact_email.trim();
 }
 
-async function getInstallationDisplayId(installationId: string): Promise<string> {
+export async function getCustomerEmail(customerId: string): Promise<string | null> {
+  if (!customerId) return null;
+  const adminClient = getAdminClient();
+  const { data: customer } = await adminClient
+    .from('customers')
+    .select('email')
+    .eq('id', customerId)
+    .maybeSingle();
+
+  return customer?.email?.trim() || null;
+}
+
+interface InstallationContext {
+  id: string;
+  display_id: string;
+  tracking_token?: string;
+  customers?: { name: string; address: string; city: string };
+  partners?: { name: string };
+  technicians?: { name: string };
+}
+
+async function getInstallationContext(installationId: string): Promise<InstallationContext | null> {
   const adminClient = getAdminClient();
   const { data: inst } = await adminClient
     .from('installations')
-    .select('display_id')
+    .select(`
+      id,
+      display_id,
+      tracking_token,
+      customers:customer_id (name, address, city),
+      partners:partner_id (name),
+      technicians:technician_id (name)
+    `)
     .eq('id', installationId)
-    .single();
-  return inst?.display_id || installationId;
+    .maybeSingle();
+
+  return inst as any || null;
 }
 
+// ---------------------------------------------------------------------------
+// Email Notification Event Handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * 1. Account / User Created (OEM, Dealer, Partner, Technician)
+ */
+export async function notifyAccountCreated(params: {
+  email: string;
+  name: string;
+  role: string;
+}) {
+  if (!params.email) {
+    console.warn(`[Notification Warning] Account created notification skipped. Missing email for user ${params.name}`);
+    return;
+  }
+
+  const { subject, htmlBody } = renderWelcomeAccountEmail({
+    email: params.email,
+    name: params.name,
+    role: params.role,
+  });
+
+  return sendTransactionalEmail({
+    to: params.email,
+    subject,
+    htmlBody,
+  });
+}
+
+/**
+ * 2. Partner Assigned to Installation
+ */
 export async function notifyPartnerAssigned(installationId: string, partnerId: string) {
   const email = await getOrgContactEmail(partnerId);
-  if (!email) return;
+  if (!email) {
+    console.warn(`[Notification Warning] Partner assigned notification skipped. No contact email for partner ${partnerId}`);
+    return;
+  }
 
-  const displayId = await getInstallationDisplayId(installationId);
+  const inst = await getInstallationContext(installationId);
+  const displayId = inst?.display_id || installationId;
 
-  await sendEmail({
+  const { subject, htmlBody } = renderPartnerAssignmentEmail({
+    partnerName: inst?.partners?.name || 'Partner Organization',
+    displayId,
+    customerName: inst?.customers?.name,
+    city: inst?.customers?.city,
+  });
+
+  return sendTransactionalEmail({
     to: email,
-    subject: `New Installation Assigned: ${displayId}`,
-    htmlBody: `
-      <h2>New Installation Assigned</h2>
-      <p>A new EV charger installation has been assigned to your organization.</p>
-      <p><strong>Installation ID:</strong> ${displayId}</p>
-      <p>Please log in to the partner dashboard to assign a technician.</p>
-    `
+    subject,
+    htmlBody,
   });
 }
 
+/**
+ * 3. Technician Assigned to Installation
+ */
 export async function notifyTechnicianAssigned(installationId: string, technicianId: string) {
   const email = await getUserEmail(technicianId);
-  if (!email) return;
+  if (!email) {
+    console.warn(`[Notification Warning] Technician assigned notification skipped. No email found for technician ${technicianId}`);
+    return;
+  }
 
-  const displayId = await getInstallationDisplayId(installationId);
+  const inst = await getInstallationContext(installationId);
+  const displayId = inst?.display_id || installationId;
+  const baseUrl = getAppBaseUrl();
 
-  await sendEmail({
+  const trackingUrl = inst?.tracking_token
+    ? `${baseUrl}/technician/workflow/${inst.tracking_token}`
+    : undefined;
+
+  const { subject, htmlBody } = renderTechnicianAssignmentEmail({
+    technicianName: inst?.technicians?.name || 'Technician',
+    displayId,
+    customerName: inst?.customers?.name,
+    customerAddress: inst?.customers?.address,
+    city: inst?.customers?.city,
+    trackingUrl,
+  });
+
+  return sendTransactionalEmail({
     to: email,
-    subject: `New Job Assigned: ${displayId}`,
-    htmlBody: `
-      <h2>New Job Assigned</h2>
-      <p>You have been assigned a new installation job.</p>
-      <p><strong>Installation ID:</strong> ${displayId}</p>
-      <p>Please log in to your technician dashboard to view the job details and begin the checklist.</p>
-    `
+    subject,
+    htmlBody,
   });
 }
 
-export async function notifySubmittedForVerification(installationId: string, partnerId: string) {
-  const email = await getOrgContactEmail(partnerId);
-  if (!email) return;
+/**
+ * 4. Installation Submitted for Verification
+ */
+export async function notifySubmittedForVerification(installationId: string, partnerId?: string | null) {
+  let email: string | null = null;
+  if (partnerId) {
+    email = await getOrgContactEmail(partnerId);
+  }
 
-  const displayId = await getInstallationDisplayId(installationId);
+  const inst = await getInstallationContext(installationId);
+  const displayId = inst?.display_id || installationId;
 
-  await sendEmail({
+  if (!email) {
+    console.warn(`[Notification Warning] Submission notification skipped. No partner contact email for installation ${displayId}`);
+    return;
+  }
+
+  const { subject, htmlBody } = renderInstallationSubmittedEmail({
+    reviewerName: inst?.partners?.name || 'Reviewer',
+    displayId,
+    technicianName: inst?.technicians?.name,
+  });
+
+  return sendTransactionalEmail({
     to: email,
-    subject: `Installation Ready for Verification: ${displayId}`,
-    htmlBody: `
-      <h2>Installation Submitted for Verification</h2>
-      <p>The technician has submitted the checklist and photos for installation <strong>${displayId}</strong>.</p>
-      <p>Please log in to the dashboard to review and verify this installation.</p>
-    `
+    subject,
+    htmlBody,
   });
 }
 
+/**
+ * 5. Revisit Requested
+ */
 export async function notifyRevisitRequested(installationId: string, technicianId: string, reason: string) {
   const email = await getUserEmail(technicianId);
-  if (!email) return;
+  if (!email) {
+    console.warn(`[Notification Warning] Revisit notification skipped. No email for technician ${technicianId}`);
+    return;
+  }
 
-  const displayId = await getInstallationDisplayId(installationId);
+  const inst = await getInstallationContext(installationId);
+  const displayId = inst?.display_id || installationId;
+  const baseUrl = getAppBaseUrl();
 
-  await sendEmail({
+  const jobUrl = inst?.tracking_token
+    ? `${baseUrl}/technician/workflow/${inst.tracking_token}`
+    : `${baseUrl}/technician/dashboard`;
+
+  const { subject, htmlBody } = renderRevisitRequestedEmail({
+    technicianName: inst?.technicians?.name || 'Technician',
+    displayId,
+    reason,
+    jobUrl,
+  });
+
+  return sendTransactionalEmail({
     to: email,
-    subject: `Revisit Required for Installation: ${displayId}`,
-    htmlBody: `
-      <h2>Revisit Required</h2>
-      <p>Your recent submission for installation <strong>${displayId}</strong> requires a revisit.</p>
-      <p><strong>Reason provided by reviewer:</strong></p>
-      <blockquote style="border-left: 4px solid #ccc; padding-left: 10px;">${reason}</blockquote>
-      <p>Please correct these issues and resubmit the checklist and evidence.</p>
-    `
+    subject,
+    htmlBody,
   });
 }
 
-export async function notifyInstallationVerified(installationId: string, partnerId: string) {
-  const email = await getOrgContactEmail(partnerId);
-  if (!email) return;
+/**
+ * 6. Installation Verified
+ */
+export async function notifyInstallationVerified(installationId: string, partnerId?: string | null) {
+  let email: string | null = null;
+  if (partnerId) {
+    email = await getOrgContactEmail(partnerId);
+  }
 
-  const displayId = await getInstallationDisplayId(installationId);
+  const inst = await getInstallationContext(installationId);
+  const displayId = inst?.display_id || installationId;
 
-  await sendEmail({
+  if (!email) {
+    console.warn(`[Notification Warning] Verification notification skipped. No recipient email for installation ${displayId}`);
+    return;
+  }
+
+  const { subject, htmlBody } = renderInstallationVerifiedEmail({
+    recipientName: inst?.partners?.name || 'Partner',
+    displayId,
+    customerName: inst?.customers?.name,
+  });
+
+  return sendTransactionalEmail({
     to: email,
-    subject: `Installation Verified: ${displayId}`,
-    htmlBody: `
-      <h2>Installation Verified</h2>
-      <p>Installation <strong>${displayId}</strong> has been verified successfully.</p>
-      <p>No further action is required for this job.</p>
-    `
+    subject,
+    htmlBody,
   });
 }

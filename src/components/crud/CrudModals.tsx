@@ -3,13 +3,13 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Edit2, Trash2, X } from 'lucide-react';
-import { 
+import {
   createOEM, updateOEM, deactivateOrganization,
   createDealer, updateDealer,
   createPartner, updatePartner
 } from '@/app/(dashboard)/admin/organizations/actions';
-import { 
-  createTechnician, updateTechnician, deactivateTechnician 
+import {
+  createTechnician, updateTechnician, deactivateTechnician
 } from '@/app/(dashboard)/partner/technicians/actions';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,12 +26,12 @@ function Modal({ isOpen, onClose, title, children }: ModalProps) {
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="acs-backdrop" 
-            onClick={onClose} 
+            className="acs-backdrop"
+            onClick={onClose}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -71,14 +71,23 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
     e.preventDefault();
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
-    
+
     let result: { error?: string, success?: boolean } = {};
-    
+
     if (page === 'oems') result = await createOEM(formData);
     else if (page === 'dealerships') result = await createDealer(formData);
     else if (page === 'partners') result = await createPartner(formData);
     else if (page === 'technicians') result = await createTechnician(formData);
-    else if (page === 'customers') result = await createCustomer(formData);
+    else if (page === 'customers') {
+      const rawCustomerId = (formData.get('customerId') as string)?.trim().toUpperCase();
+      if (rawCustomerId && !/^(CUS-\d{6}|ACS-ORD-\d{6}|ORD-\d{6})$/.test(rawCustomerId)) {
+        setIsSubmitting(false);
+        toast.error('Order ID must follow format e.g. ACS-ORD-000123 (or CUS-000123)');
+        return;
+      }
+      if (rawCustomerId) formData.set('customerId', rawCustomerId);
+      result = await createCustomer(formData);
+    }
     else if (page === 'vehicles') result = await createVehicle(formData);
     else if (page === 'chargers') result = await createCharger(formData);
 
@@ -113,7 +122,7 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
 
   return (
     <>
-      <button 
+      <button
         onClick={() => setIsOpen(true)}
         className="px-4 py-2 bg-[#243B36] text-white rounded-lg text-sm font-medium hover:bg-[#1a2b27] transition-colors shadow-sm flex items-center gap-2"
       >
@@ -182,6 +191,17 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
           {/* Customers */}
           {page === 'customers' && (
             <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Order ID</label>
+                <input
+                  type="text"
+                  name="customerId"
+                  placeholder="e.g. ACS-ORD-000123 (leave blank to auto-generate)"
+                  title="Format: ACS-ORD-XXXXXX or CUS-XXXXXX (e.g. ACS-ORD-000123)"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 uppercase font-mono focus:border-[#243B36] focus:ring-[#243B36]"
+                />
+                <p className="text-xs text-gray-400 mt-0.5">e.g. ACS-ORD-000123 (leave blank to auto-generate)</p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">{(page as string) === "dealerships" ? "Dealership Name *" : "Name *"}</label>
                 <input required type="text" name="name" placeholder={(page as string) === "dealerships" ? "Enter dealership name" : ""} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-[#243B36] focus:ring-[#243B36]" />
@@ -327,7 +347,7 @@ export function RowActions({ item, page, oems = [], userRole }: { item: any, pag
     if (!confirm('Are you sure you want to deactivate this record?')) return;
     setIsDeactivating(true);
     let result: { error?: string, success?: boolean } = {};
-    
+
     if (page === 'technicians') {
       result = await deactivateTechnician(item.id);
     } else {
@@ -343,9 +363,9 @@ export function RowActions({ item, page, oems = [], userRole }: { item: any, pag
     e.preventDefault();
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
-    
+
     let result: { error?: string, success?: boolean } = {};
-    
+
     if (page === 'oems') result = await updateOEM(item.id, formData);
     else if (page === 'dealerships') result = await updateDealer(item.id, formData);
     else if (page === 'partners') result = await updatePartner(item.id, formData);
@@ -380,7 +400,7 @@ export function RowActions({ item, page, oems = [], userRole }: { item: any, pag
 
       <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title={`Edit ${entityName}`}>
         <form onSubmit={handleEdit} className="space-y-4">
-          
+
           {(page === 'oems' || page === 'dealerships' || page === 'partners' || page === 'technicians') && (
             <>
               <div>

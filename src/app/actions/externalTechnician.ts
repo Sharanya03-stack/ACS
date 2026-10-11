@@ -3,6 +3,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { isValidTransition } from '@/lib/transitions';
+import { notifySubmittedForVerification } from '@/lib/email/notifications';
+import { notifyOrganization } from '@/lib/notifications';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -19,13 +21,10 @@ export async function getInstallationByToken(token: string) {
   const supabase = getAdminClient();
   const { data: inst, error } = await supabase
     .from('installations')
-    .select(`
-      id, display_id, status, category, scheduled_date, tracking_token, created_at,
-      customer_id, vehicle_id, charger_id, partner_id, technician_id
-    `)
+    .select(`*`)
     .eq('tracking_token', token)
     .single();
-    
+
   if (error || !inst) return null;
 
   // Fetch relations manually to avoid FK ambiguity if any
@@ -62,14 +61,20 @@ export async function getInstallationByToken(token: string) {
   }
 
   if (inst.technician_id) {
-    const { data: t } = await supabase.from('users').select('*').eq('id', inst.technician_id).single();
-    // or maybe it's in a technicians table? Let's check 'profiles'
     const { data: tp } = await supabase.from('profiles').select('*').eq('id', inst.technician_id).single();
-    technician = tp || t;
+    technician = tp;
+  } else if ((inst as any).custom_technician_name) {
+    technician = { id: null, name: (inst as any).custom_technician_name, is_custom: true };
+  } else if (inst.remarks && inst.remarks.includes('[Tech: ')) {
+    const match = inst.remarks.match(/\[Tech:\s*([^\]]+)\]/);
+    if (match) {
+      technician = { id: null, name: match[1].trim(), is_custom: true };
+    }
   }
 
   return {
     ...inst,
+    custom_technician_name: (inst as any).custom_technician_name || (technician?.name ?? null),
     customers,
     vehicles,
     chargers,
@@ -80,15 +85,23 @@ export async function getInstallationByToken(token: string) {
   };
 }
 
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path);
+  } catch {
+    // Graceful fallback outside Next.js request lifecycle
+  }
+}
+
 export async function externalStartJob(token: string) {
   const supabase = getAdminClient();
   const inst = await getInstallationByToken(token);
   if (!inst) return { error: 'Invalid token' };
-  
+
   if (!isValidTransition(inst.status, 'IN_PROGRESS')) {
     return { error: 'Invalid transition from ' + inst.status + ' to IN_PROGRESS' };
   }
-  
+
   if (inst.status !== 'IN_PROGRESS') {
     const { error: updateError } = await supabase
       .from('installations')
@@ -105,8 +118,8 @@ export async function externalStartJob(token: string) {
       created_at: new Date().toISOString()
     });
   }
-  
-  revalidatePath(`/technician/workflow/${token}`);
+
+  safeRevalidatePath(`/technician/workflow/${token}`);
   return { success: true };
 }
 
@@ -131,7 +144,7 @@ export async function externalSaveChecklist(token: string, checklist: any[]) {
 
   await supabase.from('installation_checklists').delete().eq('installation_id', inst.id);
   const { error: insertError } = await supabase.from('installation_checklists').insert(records);
-  
+
   if (insertError) return { error: 'Failed to save checklist' };
   return { success: true };
 }
@@ -142,12 +155,12 @@ export async function externalUploadPhoto(formData: FormData) {
   const category = formData.get('category') as string || 'general';
 
   if (!token || !file) return { error: 'Missing required fields' };
-  
+
   const supabase = getAdminClient();
   const inst = await getInstallationByToken(token);
   if (!inst) return { error: 'Invalid token' };
 
-  if (!inst.technician_id) {
+  if (!inst.technician_id && !inst.custom_technician_name) {
     return { error: 'A technician must be assigned before photos can be uploaded.' };
   }
 
@@ -156,38 +169,93 @@ export async function externalUploadPhoto(formData: FormData) {
 
   const fileExt = file.name.split('.').pop();
   const fileName = `${inst.id}/${category}_${Date.now()}.${fileExt}`;
-  
+
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from('installation-evidence')
     .upload(fileName, file, { cacheControl: '3600', upsert: true });
 
   if (uploadError) return { error: uploadError.message };
 
-  const { error: dbError } = await supabase.from('installation_photos').insert({
+  let uploadedByProfileId: string | null = inst.technician_id || null;
+
+  let { data: insertedPhoto, error: dbError } = await supabase.from('installation_photos').insert({
     installation_id: inst.id,
-    uploaded_by: inst.technician_id,
+    uploaded_by: uploadedByProfileId,
     category: category,
     storage_path: uploadData.path,
     file_type: file.type,
     file_size: file.size,
     uploaded_at: new Date().toISOString()
-  });
+  }).select().single();
+
+  // If database still enforces NOT NULL constraint on uploaded_by (code 23502),
+  // safely attribute to an active partner profile or admin profile
+  if (dbError && dbError.code === '23502') {
+    let fallbackProfileId: string | null = null;
+    if (inst.partner_id) {
+      const { data: partnerProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('org_id', inst.partner_id)
+        .eq('status', 'ACTIVE')
+        .limit(1);
+      if (partnerProfiles && partnerProfiles.length > 0) {
+        fallbackProfileId = partnerProfiles[0].id;
+      }
+    }
+    if (!fallbackProfileId) {
+      const { data: adminProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'ACS_ADMIN')
+        .limit(1);
+      if (adminProfiles && adminProfiles.length > 0) {
+        fallbackProfileId = adminProfiles[0].id;
+      }
+    }
+
+    if (fallbackProfileId) {
+      const retry = await supabase.from('installation_photos').insert({
+        installation_id: inst.id,
+        uploaded_by: fallbackProfileId,
+        category: category,
+        storage_path: uploadData.path,
+        file_type: file.type,
+        file_size: file.size,
+        uploaded_at: new Date().toISOString()
+      }).select().single();
+      insertedPhoto = retry.data;
+      dbError = retry.error;
+    }
+  }
 
   if (dbError) return { error: dbError.message };
-  return { success: true };
+
+  const { data: signedData } = await supabase.storage
+    .from('installation-evidence')
+    .createSignedUrl(uploadData.path, 3600);
+
+  safeRevalidatePath(`/technician/workflow/${token}`);
+  return {
+    success: true,
+    photo: {
+      ...(insertedPhoto || {}),
+      url: signedData?.signedUrl
+    }
+  };
 }
 
 export async function externalUploadDocument(formData: FormData) {
   const token = formData.get('trackingToken') as string;
   const file = formData.get('file') as File;
-  
+
   if (!token || !file) return { error: 'Missing required fields' };
-  
+
   const supabase = getAdminClient();
   const inst = await getInstallationByToken(token);
   if (!inst) return { error: 'Invalid token' };
 
-  if (!inst.technician_id) {
+  if (!inst.technician_id && !inst.custom_technician_name) {
     return { error: 'A technician must be assigned before documents can be uploaded.' };
   }
 
@@ -195,28 +263,81 @@ export async function externalUploadDocument(formData: FormData) {
   if (file.size > MAX_FILE_SIZE) return { error: 'File exceeds 5MB' };
 
   const fileName = `${inst.id}/INSTALLATION_PDF_${Date.now()}.pdf`;
-  
+
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from('installation-evidence')
     .upload(fileName, file, { cacheControl: '3600', upsert: true });
 
   if (uploadError) return { error: uploadError.message };
 
-  const { error: dbError } = await supabase.from('installation_photos').insert({
+  let uploadedByProfileId: string | null = inst.technician_id || null;
+
+  let { data: insertedDoc, error: dbError } = await supabase.from('installation_photos').insert({
     installation_id: inst.id,
-    uploaded_by: inst.technician_id,
+    uploaded_by: uploadedByProfileId,
     category: 'INSTALLATION_PDF',
     storage_path: uploadData.path,
     file_type: file.type,
     file_size: file.size,
     uploaded_at: new Date().toISOString()
-  });
+  }).select().single();
+
+  // If database still enforces NOT NULL constraint on uploaded_by (code 23502),
+  // safely attribute to an active partner profile or admin profile
+  if (dbError && dbError.code === '23502') {
+    let fallbackProfileId: string | null = null;
+    if (inst.partner_id) {
+      const { data: partnerProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('org_id', inst.partner_id)
+        .eq('status', 'ACTIVE')
+        .limit(1);
+      if (partnerProfiles && partnerProfiles.length > 0) {
+        fallbackProfileId = partnerProfiles[0].id;
+      }
+    }
+    if (!fallbackProfileId) {
+      const { data: adminProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'ACS_ADMIN')
+        .limit(1);
+      if (adminProfiles && adminProfiles.length > 0) {
+        fallbackProfileId = adminProfiles[0].id;
+      }
+    }
+
+    if (fallbackProfileId) {
+      const retry = await supabase.from('installation_photos').insert({
+        installation_id: inst.id,
+        uploaded_by: fallbackProfileId,
+        category: 'INSTALLATION_PDF',
+        storage_path: uploadData.path,
+        file_type: file.type,
+        file_size: file.size,
+        uploaded_at: new Date().toISOString()
+      }).select().single();
+      insertedDoc = retry.data;
+      dbError = retry.error;
+    }
+  }
 
   if (dbError) return { error: dbError.message };
-  
+
+  const { data: signedData } = await supabase.storage
+    .from('installation-evidence')
+    .createSignedUrl(uploadData.path, 3600);
+
   // Revalidate to refresh the UI
-  revalidatePath(`/technician/workflow/${token}`);
-  return { success: true };
+  safeRevalidatePath(`/technician/workflow/${token}`);
+  return {
+    success: true,
+    document: {
+      ...(insertedDoc || {}),
+      url: signedData?.signedUrl
+    }
+  };
 }
 
 export async function externalDeletePhoto(token: string, photoId: string) {
@@ -247,7 +368,7 @@ export async function externalSubmitInstallation(token: string) {
   if (hasPendingOrNo) return { error: 'All required checklist items must be YES or N/A' };
 
   const { data: photos } = await supabase.from('installation_photos').select('category').eq('installation_id', inst.id);
-  
+
   let requiredCategories: string[] = [];
 
   if (
@@ -269,18 +390,18 @@ export async function externalSubmitInstallation(token: string) {
   if (requiredCategories.length === 0) {
     requiredCategories.push('GENERAL_PHOTO');
   }
-  
+
   for (const reqCat of requiredCategories) {
     if (!photos?.some(p => p.category === reqCat)) {
       return { error: `Missing required photos for category: ${reqCat}` };
     }
   }
 
-  const { error: updateError } = await supabase.from('installations').update({ 
+  const { error: updateError } = await supabase.from('installations').update({
     status: 'UNDER_VERIFICATION',
-    completed_at: new Date().toISOString() 
+    completed_at: new Date().toISOString()
   }).eq('id', inst.id);
-  
+
   if (updateError) return { error: updateError.message };
 
   await supabase.from('audit_logs').insert({
@@ -291,6 +412,18 @@ export async function externalSubmitInstallation(token: string) {
     created_at: new Date().toISOString()
   });
 
+  notifySubmittedForVerification(inst.id, inst.partner_id).catch(console.error);
+  if (inst.partner_id) {
+    notifyOrganization(
+      inst.partner_id,
+      'PARTNER',
+      'Installation Submitted',
+      `Job ${inst.display_id || inst.id} is now submitted for verification.`,
+      'installations',
+      inst.id
+    ).catch(console.error);
+  }
+
   return { success: true };
 }
 
@@ -298,19 +431,19 @@ export async function externalGetSignedUrls(token: string, paths: string[]) {
   const supabase = getAdminClient();
   const inst = await getInstallationByToken(token);
   if (!inst) return { error: 'Invalid token' };
-  
+
   // SECURE: Fetch allowed paths from DB first
   const { data: allowedPhotos } = await supabase
     .from('installation_photos')
     .select('storage_path')
     .eq('installation_id', inst.id);
-    
+
   const allowedPaths = new Set(allowedPhotos?.map(p => p.storage_path) || []);
-  
+
   const urls: Record<string, string> = {};
   for (const path of paths) {
     if (!allowedPaths.has(path)) continue; // Prevent arbitrary access
-    
+
     const { data } = await supabase.storage.from('installation-evidence').createSignedUrl(path, 3600);
     if (data?.signedUrl) urls[path] = data.signedUrl;
   }

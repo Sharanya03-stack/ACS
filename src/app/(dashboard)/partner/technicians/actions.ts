@@ -4,6 +4,7 @@ import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { isValidPhone } from '@/utils/validation';
+import { notifyAccountCreated } from '@/lib/email/notifications';
 
 async function requirePartnerContext() {
   const supabase = await createServerClient();
@@ -98,6 +99,8 @@ export async function createTechnician(formData: FormData) {
       await adminClient.auth.admin.deleteUser(authUserId);
       throw profileError;
     }
+
+    notifyAccountCreated({ email: email.trim(), name: name.trim(), role: 'TECHNICIAN' }).catch(console.error);
 
     revalidatePath('/partner/technicians');
     return { success: true };
