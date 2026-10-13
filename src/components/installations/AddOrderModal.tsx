@@ -160,12 +160,7 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
   async function handleCreateCustomer(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const rawCustomerId = (formData.get('customerId') as string)?.trim().toUpperCase();
-
-    if (rawCustomerId && !/^(CUS-\d{6}|ACS-ORD-\d{6}|ORD-\d{6})$/.test(rawCustomerId)) {
-      toast.error('Order ID must follow format e.g. ACS-ORD-000123 (or CUS-000123)');
-      return;
-    }
+    const rawCustomerId = (formData.get('customerId') as string)?.trim();
 
     if (rawCustomerId) {
       formData.set('customerId', rawCustomerId);
@@ -292,10 +287,9 @@ export function AddOrderModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                             type="text"
                             name="customerId"
                             className="w-full border rounded-md p-2 text-sm bg-white uppercase font-mono"
-                            placeholder="e.g. ACS-ORD-000123"
-                            title="Enter Order ID (e.g. ACS-ORD-000123 or CUS-000123)"
+                            placeholder="Enter any Order ID (optional)"
                           />
-                          <p className="text-[11px] text-gray-400 mt-0.5">e.g. ACS-ORD-000123 (or leave blank to auto-generate)</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">Enter any custom Order ID, or leave blank to auto-generate</p>
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>

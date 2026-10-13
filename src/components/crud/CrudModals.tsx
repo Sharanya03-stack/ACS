@@ -79,12 +79,7 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
     else if (page === 'partners') result = await createPartner(formData);
     else if (page === 'technicians') result = await createTechnician(formData);
     else if (page === 'customers') {
-      const rawCustomerId = (formData.get('customerId') as string)?.trim().toUpperCase();
-      if (rawCustomerId && !/^(CUS-\d{6}|ACS-ORD-\d{6}|ORD-\d{6})$/.test(rawCustomerId)) {
-        setIsSubmitting(false);
-        toast.error('Order ID must follow format e.g. ACS-ORD-000123 (or CUS-000123)');
-        return;
-      }
+      const rawCustomerId = (formData.get('customerId') as string)?.trim();
       if (rawCustomerId) formData.set('customerId', rawCustomerId);
       result = await createCustomer(formData);
     }
@@ -196,11 +191,10 @@ export function AddEntityButton({ page, oems = [], userRole }: { page: string, o
                 <input
                   type="text"
                   name="customerId"
-                  placeholder="e.g. ACS-ORD-000123 (leave blank to auto-generate)"
-                  title="Format: ACS-ORD-XXXXXX or CUS-XXXXXX (e.g. ACS-ORD-000123)"
+                  placeholder="Enter any Order ID (optional)"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 uppercase font-mono focus:border-[#243B36] focus:ring-[#243B36]"
                 />
-                <p className="text-xs text-gray-400 mt-0.5">e.g. ACS-ORD-000123 (leave blank to auto-generate)</p>
+                <p className="text-xs text-gray-400 mt-0.5">Enter any custom Order ID, or leave blank to auto-generate</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">{(page as string) === "dealerships" ? "Dealership Name *" : "Name *"}</label>

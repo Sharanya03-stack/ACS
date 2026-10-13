@@ -73,11 +73,7 @@ export async function createCustomer(formData: FormData) {
   let customDisplayId: string | undefined = undefined;
 
   if (rawCustomerId && rawCustomerId.trim() !== '') {
-    const trimmedId = rawCustomerId.trim().toUpperCase();
-    if (!/^(CUS-\d{6}|ACS-ORD-\d{6}|ORD-\d{6})$/.test(trimmedId)) {
-      return { error: 'Invalid Order ID format. Expected format is ACS-ORD-XXXXXX (or CUS-XXXXXX) with 6 digits (e.g. ACS-ORD-000123).' };
-    }
-    customDisplayId = trimmedId;
+    customDisplayId = rawCustomerId.trim();
   }
 
   const { createClient: createAdminClient } = await import('@supabase/supabase-js');
@@ -88,14 +84,15 @@ export async function createCustomer(formData: FormData) {
 
   // If manual display_id is provided, pre-check uniqueness
   if (customDisplayId) {
+    const escaped = customDisplayId.replace(/[%_\\]/g, '\\$&');
     const { data: existingCust } = await adminClient
       .from('customers')
       .select('id, display_id')
-      .ilike('display_id', customDisplayId)
+      .ilike('display_id', escaped)
       .maybeSingle();
 
     if (existingCust) {
-      return { error: 'This Order ID / Customer ID already exists. Please enter a different ID.' };
+      return { error: 'This Order ID already exists. Please enter a different ID.' };
     }
   }
 
@@ -123,7 +120,7 @@ export async function createCustomer(formData: FormData) {
 
   if (error) {
     if (error.code === '23505' || error.message?.includes('customers_display_id_key') || error.message?.includes('display_id')) {
-      return { error: 'This Order ID / Customer ID already exists. Please enter a different ID.' };
+      return { error: 'This Order ID already exists. Please enter a different ID.' };
     }
     return { error: error.message };
   }
